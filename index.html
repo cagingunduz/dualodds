@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DualOdds — Sports Arbitrage Intelligence</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
@@ -663,19 +664,43 @@
     margin: 0 4rem 2rem;
   }
 
+  /* AUTH MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--gray); border: 1px solid var(--gray-mid); padding: 3rem; width: 100%; max-width: 420px; position: relative; animation: modalIn 0.3s ease; }
+  @keyframes modalIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .modal-close { position: absolute; top: 1.2rem; right: 1.2rem; background: none; border: none; color: var(--gray-text); font-size: 1.3rem; cursor: pointer; transition: color 0.2s; }
+  .modal-close:hover { color: var(--neon); }
+  .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 2.2rem; letter-spacing: 0.05em; margin-bottom: 0.3rem; }
+  .modal-subtitle { font-family: 'Instrument Serif', serif; font-style: italic; color: var(--gray-text); font-size: 0.9rem; margin-bottom: 2rem; }
+  .modal-tabs { display: flex; margin-bottom: 2rem; border-bottom: 1px solid var(--gray-mid); }
+  .modal-tab { font-family: 'DM Mono', monospace; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; padding: 0.75rem 1.5rem; cursor: pointer; color: var(--gray-text); border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none; transition: color 0.2s, border-color 0.2s; }
+  .modal-tab.active { color: var(--neon); border-bottom-color: var(--neon); }
+  .form-group { margin-bottom: 1.25rem; }
+  .form-label { display: block; font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gray-text); margin-bottom: 0.5rem; }
+  .form-input { width: 100%; background: var(--black); border: 1px solid var(--gray-mid); color: var(--white); padding: 0.85rem 1rem; font-family: 'Syne', sans-serif; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
+  .form-input:focus { border-color: var(--neon); }
+  .form-input::placeholder { color: var(--gray-text); }
+  .btn-auth { width: 100%; background: var(--neon); color: var(--black); border: none; padding: 1rem; font-family: 'DM Mono', monospace; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: box-shadow 0.2s, opacity 0.2s; margin-top: 0.5rem; }
+  .btn-auth:hover { box-shadow: var(--neon-glow); }
+  .btn-auth:disabled { opacity: 0.5; cursor: not-allowed; }
+  .auth-msg { font-family: 'DM Mono', monospace; font-size: 0.72rem; text-align: center; margin-top: 1rem; padding: 0.75rem; display: none; }
+  .auth-msg.error { background: rgba(255,60,60,0.1); color: #ff6b6b; border: 1px solid rgba(255,60,60,0.2); }
+  .auth-msg.success { background: rgba(212,255,0,0.08); color: var(--neon); border: 1px solid rgba(212,255,0,0.2); }
+  /* TOAST */
+  .toast { position: fixed; bottom: 2rem; right: 2rem; z-index: 300; background: var(--gray); border: 1px solid var(--neon); padding: 1rem 1.5rem; font-family: 'DM Mono', monospace; font-size: 0.78rem; letter-spacing: 0.08em; color: var(--white); transform: translateY(100px); opacity: 0; transition: transform 0.3s ease, opacity 0.3s ease; display: flex; align-items: center; gap: 0.75rem; max-width: 320px; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast-icon { color: var(--neon); }
+  /* NAV USER */
+  .nav-user { display: none; align-items: center; gap: 1rem; }
+  .nav-user.visible { display: flex; }
+  .nav-avatar { width: 34px; height: 34px; background: var(--neon); color: var(--black); font-family: 'Bebas Neue', sans-serif; font-size: 1rem; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .nav-signout { font-family: 'DM Mono', monospace; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--gray-text); cursor: pointer; text-transform: uppercase; background: none; border: none; transition: color 0.2s; }
+  .nav-signout:hover { color: var(--neon); }
   /* Animations */
-  @keyframes fadeSlideUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .reveal {
-    opacity: 0;
-    transform: translateY(24px);
-    transition: opacity 0.7s ease, transform 0.7s ease;
-  }
+  @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
   .reveal.visible { opacity: 1; transform: translateY(0); }
-
-  /* Mobile */
   @media (max-width: 900px) {
     nav { padding: 1.2rem 1.5rem; }
     .nav-links { display: none; }
@@ -694,16 +719,63 @@
 </head>
 <body>
 
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title">DUALODDS</div>
+    <div class="modal-subtitle">Sign in to access your arbitrage feed</div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" onclick="switchTab('login')">Sign In</button>
+      <button class="modal-tab" onclick="switchTab('signup')">Create Account</button>
+    </div>
+    <div id="loginForm">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="loginEmail" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="loginPassword" placeholder="••••••••" />
+      </div>
+      <button class="btn-auth" id="loginBtn" onclick="handleLogin()">Sign In →</button>
+      <div id="loginMsg" class="auth-msg"></div>
+    </div>
+    <div id="signupForm" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Full Name</label>
+        <input class="form-input" type="text" id="signupName" placeholder="John Smith" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="signupEmail" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password (min. 8 characters)</label>
+        <input class="form-input" type="password" id="signupPassword" placeholder="••••••••" />
+      </div>
+      <button class="btn-auth" id="signupBtn" onclick="handleSignup()">Create Account →</button>
+      <div id="signupMsg" class="auth-msg"></div>
+    </div>
+  </div>
+</div>
 
-<!-- NAV -->
+<!-- TOAST -->
+<div class="toast" id="toast"><span class="toast-icon">✓</span><span id="toastMsg"></span></div>
 <nav>
   <div class="nav-logo">DUAL<span>ODDS</span></div>
-  <div class="nav-links">
+  <div class="nav-links" id="navLinks">
     <a href="#how">How It Works</a>
     <a href="#features">Features</a>
     <a href="#pricing">Pricing</a>
     <a href="#faq">FAQ</a>
-    <a href="#pricing" class="nav-cta">Start Free Trial</a>
+    <a href="#" onclick="openModal('login'); return false;" style="font-family:'DM Mono',monospace;font-size:0.78rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--white);text-decoration:none;background:var(--gray-mid);padding:0.65rem 1.5rem;font-weight:700;transition:background 0.2s;display:inline-block;">Log In</a>
+    <a href="#" onclick="openModal('signup'); return false;" class="nav-cta" style="display:inline-block;">Sign Up</a>
+  </div>
+  <div class="nav-user" id="navUser">
+    <a href="https://app.dualodds.io" class="nav-cta" style="text-decoration:none;padding:0.65rem 1.5rem;font-family:'DM Mono',monospace;font-size:0.78rem;font-weight:700;letter-spacing:0.1em;background:var(--neon);color:var(--black);">Open App →</a>
+    <div class="nav-avatar" id="navAvatar">U</div>
+    <button class="nav-signout" onclick="handleSignOut()">Sign Out</button>
   </div>
 </nav>
 
@@ -719,7 +791,7 @@
     </h1>
     <p class="hero-sub">Real-time sports arbitrage opportunities across 50+ bookmakers. No gambling — just mathematical certainty.</p>
     <div class="hero-actions">
-      <a href="#pricing" class="btn-primary">Start for Free</a>
+      <a href="#" onclick="openModal('signup'); return false;" class="btn-primary">Get Started</a>
       <a href="#how" class="btn-secondary">See How</a>
     </div>
   </div>
@@ -914,7 +986,7 @@
 <section id="pricing">
   <div class="section-tag">Plans</div>
   <h2 class="section-title reveal">CHOOSE YOUR<br>EDGE</h2>
-  <p class="section-sub reveal">No hidden fees. Cancel anytime. Start making guaranteed profits today.</p>
+  <p class="section-sub reveal">No hidden fees. No free trials. Just real arbitrage opportunities. Cancel anytime.</p>
   <div class="pricing-grid">
     <div class="plan reveal">
       <div class="plan-corner"></div>
@@ -931,7 +1003,7 @@
         <div class="plan-feat locked">Profit tracker & analytics</div>
         <div class="plan-feat locked">Priority support</div>
       </div>
-      <a href="https://buy.stripe.com/test_dRm00kbdkcKD6Ht9ei5sA00" class="btn-plan btn-plan-outline" target="_blank">Subscribe to Basic</a>
+      <a href="#" onclick="handleSubscribe('https://buy.stripe.com/test_dRm00kbdkcKD6Ht9ei5sA00'); return false;" class="btn-plan btn-plan-outline">Subscribe to Basic</a>
     </div>
     <div class="plan featured reveal">
       <div class="plan-badge">Most Popular</div>
@@ -948,7 +1020,7 @@
         <div class="plan-feat">Historical odds data</div>
         <div class="plan-feat locked">Priority 24/7 support</div>
       </div>
-      <a href="https://buy.stripe.com/test_28E4gAdls11V8PB3TY5sA01" class="btn-plan btn-plan-solid" target="_blank">Subscribe to Pro</a>
+      <a href="#" onclick="handleSubscribe('https://buy.stripe.com/test_28E4gAdls11V8PB3TY5sA01'); return false;" class="btn-plan btn-plan-solid">Subscribe to Pro</a>
     </div>
     <div class="plan reveal">
       <div class="plan-corner"></div>
@@ -965,7 +1037,7 @@
         <div class="plan-feat">Multi-device access</div>
         <div class="plan-feat">Full API access</div>
       </div>
-      <a href="https://buy.stripe.com/test_bJe3cwgxEcKDc1N8ae5sA02" class="btn-plan btn-plan-outline" target="_blank">Subscribe to Elite</a>
+      <a href="#" onclick="handleSubscribe('https://buy.stripe.com/test_bJe3cwgxEcKDc1N8ae5sA02'); return false;" class="btn-plan btn-plan-outline">Subscribe to Elite</a>
     </div>
   </div>
 </section>
@@ -1057,10 +1129,10 @@
       </div>
       <div class="faq-item reveal">
         <div class="faq-q" onclick="toggleFaq(this)">
-          <span>Is there a free trial?</span>
+          <span>Can I cancel my subscription?</span>
           <span class="faq-toggle">+</span>
         </div>
-        <div class="faq-a">Yes — Pro members get a full 7-day free trial with all features unlocked. No credit card required to start. If you're not satisfied, you keep the free Starter plan.</div>
+        <div class="faq-a">Yes, cancel anytime directly from your account. You keep access until the end of your billing period. No questions asked.</div>
       </div>
     </div>
   </div>
@@ -1072,7 +1144,7 @@
   <div class="section-tag" style="justify-content:center">Ready to Start</div>
   <h2 class="section-title reveal">PROFIT IS<br><span style="color:var(--neon)">GUARANTEED.</span></h2>
   <p class="section-sub">Join 12,000+ members who are turning mathematical certainty into consistent monthly income.</p>
-  <a href="#pricing" class="btn-primary">View Plans</a>
+  <a href="#pricing" class="btn-primary">Choose Your Plan</a>
 </section>
 
 <!-- DISCLAIMER -->
@@ -1130,18 +1202,121 @@
 </footer>
 
 <script>
-  // Reveal on scroll
-  const reveals = document.querySelectorAll('.reveal');
+  // ── SUPABASE SETUP ──────────────────────────
+  const { createClient } = supabase;
+  const sb = createClient(
+    'https://tcsqwsunhddbmglqmmgq.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjc3F3c3VuaGRkYm1nbHFtbWdxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0NjA1NTQsImV4cCI6MjA4NzAzNjU1NH0.sNckIQ3yOrDhvCV0bzegIWwc3go96ZZcY9JPjWaIn_o'
+  );
+
+  // ── AUTH STATE ──────────────────────────────
+  sb.auth.onAuthStateChange((event, session) => {
+    if (session?.user) {
+      showUserNav(session.user);
+    } else {
+      showGuestNav();
+    }
+  });
+
+  function showUserNav(user) {
+    document.getElementById('navLinks').style.display = 'none';
+    document.getElementById('navUser').classList.add('visible');
+    document.getElementById('navAvatar').textContent = (user.email || 'U')[0].toUpperCase();
+  }
+
+  function showGuestNav() {
+    document.getElementById('navLinks').style.display = 'flex';
+    document.getElementById('navUser').classList.remove('visible');
+  }
+
+  // ── MODAL ───────────────────────────────────
+  function openModal(tab) {
+    document.getElementById('authModal').classList.add('open');
+    if (tab) switchTab(tab);
+  }
+  function closeModal() {
+    document.getElementById('authModal').classList.remove('open');
+  }
+  function switchTab(tab) {
+    document.querySelectorAll('.modal-tab').forEach((t, i) => {
+      t.classList.toggle('active', (tab === 'login' && i === 0) || (tab === 'signup' && i === 1));
+    });
+    document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+    document.getElementById('signupForm').style.display = tab === 'signup' ? 'block' : 'none';
+  }
+  document.getElementById('authModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('authModal')) closeModal();
+  });
+
+  // ── LOGIN ───────────────────────────────────
+  async function handleLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const btn = document.getElementById('loginBtn');
+    const msg = document.getElementById('loginMsg');
+    if (!email || !password) return showMsg(msg, 'Please fill in all fields.', 'error');
+    btn.disabled = true; btn.textContent = 'Signing in...';
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    btn.disabled = false; btn.textContent = 'Sign In →';
+    if (error) { showMsg(msg, error.message, 'error'); }
+    else { closeModal(); showToast('Welcome back! ✓'); }
+  }
+
+  // ── SIGNUP ──────────────────────────────────
+  async function handleSignup() {
+    const name = document.getElementById('signupName').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    const btn = document.getElementById('signupBtn');
+    const msg = document.getElementById('signupMsg');
+    if (!name || !email || !password) return showMsg(msg, 'Please fill in all fields.', 'error');
+    if (password.length < 8) return showMsg(msg, 'Password must be at least 8 characters.', 'error');
+    btn.disabled = true; btn.textContent = 'Creating account...';
+    const { error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
+    btn.disabled = false; btn.textContent = 'Create Account →';
+    if (error) { showMsg(msg, error.message, 'error'); }
+    else { showMsg(msg, '✓ Account created! Check your email to verify.', 'success'); }
+  }
+
+  // ── SUBSCRIBE — requires login first ────────
+  async function handleSubscribe(stripeUrl) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) {
+      openModal();
+      showToast('Please create an account first to subscribe.');
+      return;
+    }
+    window.open(stripeUrl, '_blank');
+  }
+
+  // ── SIGN OUT ────────────────────────────────
+  async function handleSignOut() {
+    await sb.auth.signOut();
+    showToast('Signed out successfully.');
+  }
+
+  // ── HELPERS ─────────────────────────────────
+  function showMsg(el, text, type) {
+    el.style.display = 'block';
+    el.className = `auth-msg ${type}`;
+    el.textContent = text;
+  }
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    document.getElementById('toastMsg').textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  // ── SCROLL REVEAL ────────────────────────────
   const observer = new IntersectionObserver(entries => {
     entries.forEach((e, i) => {
-      if (e.isIntersecting) {
-        setTimeout(() => e.target.classList.add('visible'), i * 80);
-      }
+      if (e.isIntersecting) setTimeout(() => e.target.classList.add('visible'), i * 80);
     });
   }, { threshold: 0.1 });
-  reveals.forEach(el => observer.observe(el));
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-  // FAQ toggle
+  // ── FAQ ──────────────────────────────────────
   function toggleFaq(el) {
     const item = el.closest('.faq-item');
     const wasOpen = item.classList.contains('open');
@@ -1149,30 +1324,17 @@
     if (!wasOpen) item.classList.add('open');
   }
 
-  // Animate ticker cards
-  const tickers = document.querySelectorAll('.ticker-card');
+  // ── ANIMATED TICKERS ─────────────────────────
   setInterval(() => {
-    tickers.forEach(t => {
-      const profitEl = t.querySelector('.ticker-profit');
-      if (profitEl) {
-        const base = parseFloat(profitEl.textContent);
-        const delta = (Math.random() - 0.5) * 0.4;
-        const newVal = Math.max(1, base + delta).toFixed(1);
-        profitEl.textContent = '+' + newVal + '%';
-      }
+    document.querySelectorAll('.ticker-profit').forEach(el => {
+      const base = parseFloat(el.textContent);
+      el.textContent = '+' + Math.max(1, base + (Math.random() - 0.5) * 0.4).toFixed(1) + '%';
     });
-  }, 3000);
-
-  // Animate dashboard rows
-  const arbRows = document.querySelectorAll('.arb-pct');
-  setInterval(() => {
-    arbRows.forEach(r => {
-      const base = parseFloat(r.textContent);
-      const delta = (Math.random() - 0.5) * 0.6;
-      const newVal = Math.max(0.5, base + delta).toFixed(1);
-      r.textContent = '+' + newVal + '%';
+    document.querySelectorAll('.arb-pct').forEach(el => {
+      const base = parseFloat(el.textContent);
+      el.textContent = '+' + Math.max(0.5, base + (Math.random() - 0.5) * 0.6).toFixed(1) + '%';
     });
-  }, 2500);
+  }, 2800);
 </script>
 </body>
 </html>
