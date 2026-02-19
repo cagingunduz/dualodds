@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DualOdds — Sports Arbitrage Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #0a0a0a;
+    --white: #f5f5f0;
+    --neon: #d4ff00;
+    --neon-dim: rgba(212,255,0,0.12);
+    --neon-glow: 0 0 40px rgba(212,255,0,0.4);
+    --gray: #1c1c1c;
+    --gray-mid: #2e2e2e;
+    --gray-text: #888;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: 'Syne', sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: var(--black); }
+  ::-webkit-scrollbar-thumb { background: var(--neon); }
+
+  /* NAV */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.5rem 4rem;
+    background: rgba(10,10,10,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(212,255,0,0.1);
+  }
+  .nav-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    letter-spacing: 0.1em;
+    color: var(--white);
+  }
+  .nav-logo span { color: var(--neon); }
+  .nav-links { display: flex; gap: 2.5rem; align-items: center; }
+  .nav-links a {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gray-text);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--neon); }
+  .nav-cta {
+    background: var(--neon) !important;
+    color: var(--black) !important;
+    padding: 0.65rem 1.5rem;
+    font-weight: 700;
+    font-family: 'DM Mono', monospace !important;
+    font-size: 0.78rem !important;
+    letter-spacing: 0.1em;
+    text-decoration: none;
+    transition: box-shadow 0.2s, transform 0.2s !important;
+  }
+  .nav-cta:hover { box-shadow: var(--neon-glow); transform: translateY(-1px); }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    padding: 8rem 4rem 4rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -200px; right: -200px;
+    width: 700px; height: 700px;
+    background: radial-gradient(circle, rgba(212,255,0,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-grid-lines {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(212,255,0,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(212,255,0,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+  }
+  .hero-left { position: relative; z-index: 1; }
+  .hero-tag {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--neon);
+    border: 1px solid rgba(212,255,0,0.3);
+    padding: 0.4rem 1rem;
+    margin-bottom: 2rem;
+    animation: fadeSlideUp 0.8s ease both;
+  }
+  .hero-tag::before { content: '●'; font-size: 0.5rem; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .hero-headline {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(4.5rem, 8vw, 8rem);
+    line-height: 0.9;
+    letter-spacing: 0.02em;
+    margin-bottom: 2rem;
+    animation: fadeSlideUp 0.8s 0.1s ease both;
+  }
+  .hero-headline .accent { color: var(--neon); display: block; }
+  .hero-sub {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.2rem;
+    color: var(--gray-text);
+    line-height: 1.7;
+    max-width: 420px;
+    margin-bottom: 3rem;
+    font-style: italic;
+    animation: fadeSlideUp 0.8s 0.2s ease both;
+  }
+  .hero-actions {
+    display: flex; gap: 1rem; flex-wrap: wrap;
+    animation: fadeSlideUp 0.8s 0.3s ease both;
+  }
+  .btn-primary {
+    background: var(--neon);
+    color: var(--black);
+    padding: 1rem 2.5rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border: none;
+    display: inline-block;
+    transition: box-shadow 0.2s, transform 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-primary::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,0.2);
+    transform: translateX(-100%) skewX(-20deg);
+    transition: transform 0.4s ease;
+  }
+  .btn-primary:hover::after { transform: translateX(110%) skewX(-20deg); }
+  .btn-primary:hover { box-shadow: var(--neon-glow); transform: translateY(-2px); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--white);
+    padding: 1rem 2rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border: 1px solid var(--gray-mid);
+    display: inline-block;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .btn-secondary:hover { border-color: var(--neon); color: var(--neon); }
+
+  /* Hero right — live ticker */
+  .hero-right {
+    display: flex; flex-direction: column; gap: 1rem;
+    padding-left: 4rem;
+    animation: fadeSlideUp 0.8s 0.4s ease both;
+    position: relative; z-index: 1;
+  }
+  .ticker-card {
+    background: var(--gray);
+    border: 1px solid var(--gray-mid);
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .ticker-card:hover { border-color: var(--neon); transform: translateX(-4px); }
+  .ticker-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: var(--neon);
+  }
+  .ticker-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+  .ticker-sport {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--gray-text);
+  }
+  .ticker-profit {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem;
+    color: var(--neon);
+    letter-spacing: 0.05em;
+  }
+  .ticker-match { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .ticker-books {
+    display: flex; gap: 0.5rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--gray-text);
+  }
+  .ticker-book {
+    background: var(--gray-mid);
+    padding: 0.2rem 0.5rem;
+  }
+  .ticker-live {
+    position: absolute; top: 1rem; right: 1rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    color: var(--neon);
+    display: flex; align-items: center; gap: 0.3rem;
+  }
+  .ticker-live::before { content: '●'; animation: pulse 1s infinite; }
+
+  /* STATS BAR */
+  .stats-bar {
+    background: var(--neon);
+    padding: 1.2rem 4rem;
+    display: flex; justify-content: space-between; align-items: center;
+    overflow: hidden;
+  }
+  .stat-item { text-align: center; }
+  .stat-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.2rem;
+    color: var(--black);
+    letter-spacing: 0.05em;
+    line-height: 1;
+  }
+  .stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(10,10,10,0.6);
+    margin-top: 0.2rem;
+  }
+
+  /* HOW IT WORKS */
+  section { padding: 8rem 4rem; }
+  .section-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--neon);
+    margin-bottom: 1rem;
+    display: flex; align-items: center; gap: 0.75rem;
+  }
+  .section-tag::after { content: ''; flex: 1; max-width: 40px; height: 1px; background: var(--neon); }
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3rem, 5vw, 5rem);
+    line-height: 0.95;
+    letter-spacing: 0.02em;
+    margin-bottom: 1rem;
+  }
+  .section-sub {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    color: var(--gray-text);
+    font-size: 1.05rem;
+    max-width: 480px;
+    line-height: 1.7;
+    margin-bottom: 4rem;
+  }
+
+  .steps-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+  }
+  .step {
+    background: var(--gray);
+    padding: 3rem 2rem;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.2s;
+  }
+  .step:hover { background: var(--gray-mid); }
+  .step:hover .step-num { color: var(--neon); -webkit-text-stroke-color: var(--neon); }
+  .step-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 5rem;
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(255,255,255,0.1);
+    line-height: 1;
+    margin-bottom: 1.5rem;
+    transition: color 0.2s, -webkit-text-stroke-color 0.2s;
+  }
+  .step-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    letter-spacing: 0.03em;
+  }
+  .step-desc {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    color: var(--gray-text);
+    font-size: 0.95rem;
+    line-height: 1.7;
+  }
+  .step-icon {
+    position: absolute; top: 2rem; right: 2rem;
+    font-size: 1.5rem;
+    opacity: 0.3;
+  }
+
+  /* FEATURES */
+  .features-section {
+    background: var(--gray);
+    border-top: 1px solid var(--gray-mid);
+    border-bottom: 1px solid var(--gray-mid);
+  }
+  .features-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5rem;
+    align-items: center;
+  }
+  .features-list { display: flex; flex-direction: column; gap: 0; }
+  .feature-item {
+    padding: 2rem 0;
+    border-bottom: 1px solid var(--gray-mid);
+    display: flex; gap: 1.5rem; align-items: flex-start;
+    position: relative;
+    overflow: hidden;
+    transition: padding-left 0.2s;
+  }
+  .feature-item:hover { padding-left: 1rem; }
+  .feature-item:hover .feature-arrow { opacity: 1; transform: translateX(0); }
+  .feature-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--neon);
+    padding-top: 0.3rem;
+    min-width: 28px;
+  }
+  .feature-content {}
+  .feature-title { font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem; }
+  .feature-desc { font-family: 'Instrument Serif', serif; font-style: italic; color: var(--gray-text); font-size: 0.9rem; line-height: 1.6; }
+  .feature-arrow {
+    margin-left: auto;
+    color: var(--neon);
+    font-size: 1.2rem;
+    opacity: 0;
+    transform: translateX(-8px);
+    transition: opacity 0.2s, transform 0.2s;
+    padding-top: 0.2rem;
+  }
+
+  .features-visual {
+    position: relative;
+  }
+  .dashboard-preview {
+    background: var(--black);
+    border: 1px solid var(--gray-mid);
+    padding: 2rem;
+    position: relative;
+  }
+  .dash-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--gray-mid);
+  }
+  .dash-title { font-family: 'DM Mono', monospace; font-size: 0.75rem; letter-spacing: 0.1em; color: var(--gray-text); text-transform: uppercase; }
+  .dash-live { font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--neon); display: flex; align-items: center; gap: 0.3rem; }
+  .dash-live::before { content: '●'; animation: pulse 1s infinite; }
+  .arb-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.82rem;
+  }
+  .arb-row:last-child { border-bottom: none; }
+  .arb-match { font-weight: 600; }
+  .arb-sport { font-family: 'DM Mono', monospace; font-size: 0.6rem; color: var(--gray-text); margin-top: 0.2rem; }
+  .arb-pct {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 0.05em;
+  }
+  .arb-pct.high { color: var(--neon); }
+  .arb-pct.med { color: #88cc00; }
+  .dash-glow {
+    position: absolute; top: -40px; right: -40px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(212,255,0,0.08), transparent);
+    pointer-events: none;
+  }
+
+  /* PRICING */
+  .pricing-section {}
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    margin-top: 0;
+  }
+  .plan {
+    background: var(--gray);
+    padding: 3rem 2.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s;
+  }
+  .plan:hover { transform: translateY(-4px); }
+  .plan.featured {
+    background: var(--black);
+    border: 1px solid var(--neon);
+    box-shadow: 0 0 60px rgba(212,255,0,0.1);
+    z-index: 1;
+  }
+  .plan-badge {
+    display: inline-block;
+    background: var(--neon);
+    color: var(--black);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.75rem;
+    margin-bottom: 2rem;
+  }
+  .plan-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.5rem;
+    color: var(--gray-text);
+  }
+  .plan.featured .plan-name { color: var(--white); }
+  .plan-price {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 4rem;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+  .plan.featured .plan-price { color: var(--neon); }
+  .plan-period {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--gray-text);
+    letter-spacing: 0.1em;
+    margin-bottom: 2.5rem;
+  }
+  .plan-features { display: flex; flex-direction: column; gap: 0.9rem; margin-bottom: 2.5rem; }
+  .plan-feat {
+    display: flex; gap: 0.75rem; align-items: flex-start;
+    font-size: 0.88rem;
+    color: var(--gray-text);
+  }
+  .plan.featured .plan-feat { color: var(--white); }
+  .plan-feat::before { content: '→'; color: var(--neon); font-size: 0.8rem; margin-top: 0.1rem; flex-shrink: 0; }
+  .plan-feat.locked { opacity: 0.3; }
+  .plan-feat.locked::before { content: '✕'; color: var(--gray-text); }
+  .btn-plan {
+    display: block;
+    text-align: center;
+    padding: 1rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: all 0.2s;
+    font-weight: 700;
+  }
+  .btn-plan-outline {
+    border: 1px solid var(--gray-mid);
+    color: var(--gray-text);
+  }
+  .btn-plan-outline:hover { border-color: var(--neon); color: var(--neon); }
+  .btn-plan-solid {
+    background: var(--neon);
+    color: var(--black);
+  }
+  .btn-plan-solid:hover { box-shadow: var(--neon-glow); }
+  .plan-corner {
+    position: absolute;
+    top: 0; right: 0;
+    width: 80px; height: 80px;
+    border-bottom: 80px solid transparent;
+    border-right: 80px solid rgba(212,255,0,0.05);
+  }
+
+  /* TESTIMONIALS */
+  .testimonials-section { background: var(--black); }
+  .testimonials-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    margin-top: 4rem;
+  }
+  .testi {
+    background: var(--gray);
+    padding: 2.5rem;
+    position: relative;
+    transition: border-left 0.2s;
+    border-left: 3px solid transparent;
+  }
+  .testi:hover { border-left-color: var(--neon); }
+  .testi-quote {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 1rem;
+    line-height: 1.75;
+    color: var(--white);
+    margin-bottom: 2rem;
+  }
+  .testi-quote::before { content: '"'; font-size: 2rem; color: var(--neon); line-height: 0; vertical-align: -0.5rem; margin-right: 0.2rem; }
+  .testi-author { display: flex; align-items: center; gap: 1rem; }
+  .testi-avatar {
+    width: 40px; height: 40px;
+    background: var(--neon);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.1rem;
+    color: var(--black);
+    flex-shrink: 0;
+  }
+  .testi-name { font-weight: 700; font-size: 0.88rem; }
+  .testi-role { font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--gray-text); margin-top: 0.2rem; letter-spacing: 0.08em; }
+  .stars {
+    position: absolute; top: 2rem; right: 2rem;
+    color: var(--neon);
+    font-size: 0.7rem;
+    letter-spacing: 0.1rem;
+  }
+
+  /* FAQ */
+  .faq-section {
+    background: var(--gray);
+  }
+  .faq-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5rem;
+    align-items: start;
+  }
+  .faq-list { display: flex; flex-direction: column; }
+  .faq-item {
+    border-bottom: 1px solid var(--gray-mid);
+    padding: 1.5rem 0;
+  }
+  .faq-q {
+    display: flex; justify-content: space-between; align-items: center;
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 0;
+    transition: color 0.2s;
+  }
+  .faq-item:hover .faq-q { color: var(--neon); }
+  .faq-toggle { color: var(--neon); font-size: 1.2rem; transition: transform 0.2s; }
+  .faq-item.open .faq-toggle { transform: rotate(45deg); }
+  .faq-a {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    color: var(--gray-text);
+    font-size: 0.92rem;
+    line-height: 1.7;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, margin-top 0.3s;
+  }
+  .faq-item.open .faq-a { max-height: 200px; margin-top: 1rem; }
+
+  /* CTA SECTION */
+  .cta-section {
+    background: var(--black);
+    text-align: center;
+    padding: 10rem 4rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .cta-bg {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80vw; height: 80vh;
+    background: radial-gradient(ellipse, rgba(212,255,0,0.05) 0%, transparent 65%);
+    pointer-events: none;
+  }
+  .cta-section .section-title { font-size: clamp(4rem, 8vw, 9rem); position: relative; }
+  .cta-section .section-sub { margin: 1rem auto 3rem; text-align: center; }
+  .cta-section .btn-primary { font-size: 1rem; padding: 1.2rem 3rem; }
+
+  /* FOOTER */
+  footer {
+    background: var(--gray);
+    border-top: 1px solid var(--gray-mid);
+    padding: 4rem;
+  }
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 4rem;
+    margin-bottom: 4rem;
+  }
+  .footer-brand .nav-logo { font-size: 2.5rem; display: block; margin-bottom: 1rem; }
+  .footer-tagline { font-family: 'Instrument Serif', serif; font-style: italic; color: var(--gray-text); font-size: 0.92rem; line-height: 1.6; max-width: 260px; }
+  .footer-col h4 { font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--neon); margin-bottom: 1.5rem; }
+  .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 0.75rem; }
+  .footer-col ul li a { text-decoration: none; color: var(--gray-text); font-size: 0.88rem; transition: color 0.2s; }
+  .footer-col ul li a:hover { color: var(--white); }
+  .footer-bottom {
+    border-top: 1px solid var(--gray-mid);
+    padding-top: 2rem;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .footer-copy { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--gray-text); letter-spacing: 0.08em; }
+  .footer-social { display: flex; gap: 1rem; }
+  .footer-social a {
+    width: 36px; height: 36px;
+    border: 1px solid var(--gray-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem;
+    color: var(--gray-text);
+    text-decoration: none;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .footer-social a:hover { border-color: var(--neon); color: var(--neon); }
+
+  /* Disclaimer banner */
+  .disclaimer {
+    background: rgba(212,255,0,0.05);
+    border: 1px solid rgba(212,255,0,0.15);
+    padding: 1rem 2rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    color: var(--gray-text);
+    text-align: center;
+    line-height: 1.6;
+    margin: 0 4rem 2rem;
+  }
+
+  /* Animations */
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  /* Mobile */
+  @media (max-width: 900px) {
+    nav { padding: 1.2rem 1.5rem; }
+    .nav-links { display: none; }
+    .hero { grid-template-columns: 1fr; padding: 7rem 1.5rem 3rem; }
+    .hero-right { padding-left: 0; }
+    section { padding: 5rem 1.5rem; }
+    .steps-grid, .pricing-grid, .testimonials-grid { grid-template-columns: 1fr; }
+    .features-layout, .faq-layout, .footer-grid { grid-template-columns: 1fr; gap: 2rem; }
+    .stats-bar { flex-wrap: wrap; gap: 1.5rem; padding: 1.5rem; justify-content: center; }
+    .cta-section { padding: 6rem 1.5rem; }
+    footer { padding: 3rem 1.5rem; }
+    .disclaimer { margin: 0 1.5rem 1.5rem; }
+    footer .footer-bottom { flex-direction: column; gap: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">DUAL<span>ODDS</span></div>
+  <div class="nav-links">
+    <a href="#how">How It Works</a>
+    <a href="#features">Features</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#faq">FAQ</a>
+    <a href="#pricing" class="nav-cta">Start Free Trial</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="hero-grid-lines"></div>
+  <div class="hero-left">
+    <div class="hero-tag">Live Arbitrage Scanner</div>
+    <h1 class="hero-headline">
+      GUARANTEED<br>
+      <span class="accent">PROFIT.</span>
+      EVERY<br>BET.
+    </h1>
+    <p class="hero-sub">Real-time sports arbitrage opportunities across 50+ bookmakers. No gambling — just mathematical certainty.</p>
+    <div class="hero-actions">
+      <a href="#pricing" class="btn-primary">Start for Free</a>
+      <a href="#how" class="btn-secondary">See How</a>
+    </div>
+  </div>
+  <div class="hero-right">
+    <div class="ticker-card">
+      <div class="ticker-live">LIVE</div>
+      <div class="ticker-header">
+        <span class="ticker-sport">⚽ Premier League</span>
+        <span class="ticker-profit">+4.2%</span>
+      </div>
+      <div class="ticker-match">Arsenal vs Chelsea</div>
+      <div class="ticker-books"><span class="ticker-book">Bet365</span><span class="ticker-book">Pinnacle</span><span class="ticker-book">1xBet</span></div>
+    </div>
+    <div class="ticker-card">
+      <div class="ticker-live">LIVE</div>
+      <div class="ticker-header">
+        <span class="ticker-sport">🏀 NBA</span>
+        <span class="ticker-profit">+2.8%</span>
+      </div>
+      <div class="ticker-match">Lakers vs Celtics</div>
+      <div class="ticker-books"><span class="ticker-book">DraftKings</span><span class="ticker-book">FanDuel</span></div>
+    </div>
+    <div class="ticker-card">
+      <div class="ticker-live">LIVE</div>
+      <div class="ticker-header">
+        <span class="ticker-sport">🎾 ATP Tour</span>
+        <span class="ticker-profit">+6.1%</span>
+      </div>
+      <div class="ticker-match">Djokovic vs Alcaraz</div>
+      <div class="ticker-books"><span class="ticker-book">Betway</span><span class="ticker-book">Unibet</span><span class="ticker-book">Bet365</span></div>
+    </div>
+    <div class="ticker-card">
+      <div class="ticker-header">
+        <span class="ticker-sport">🏈 NFL</span>
+        <span class="ticker-profit">+3.5%</span>
+      </div>
+      <div class="ticker-match">Chiefs vs Ravens</div>
+      <div class="ticker-books"><span class="ticker-book">DraftKings</span><span class="ticker-book">BetMGM</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat-item">
+    <div class="stat-num">2,400+</div>
+    <div class="stat-label">Daily Arb Opportunities</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">58</div>
+    <div class="stat-label">Bookmakers Monitored</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">0.3s</div>
+    <div class="stat-label">Average Alert Speed</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">12K+</div>
+    <div class="stat-label">Active Subscribers</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">98.7%</div>
+    <div class="stat-label">Uptime Guarantee</div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="section-tag">Process</div>
+  <h2 class="section-title reveal">HOW ARBITRAGE<br>WORKS</h2>
+  <p class="section-sub reveal">We scan odds discrepancies across dozens of bookmakers so you can place risk-free bets on all outcomes simultaneously.</p>
+  <div class="steps-grid">
+    <div class="step reveal">
+      <div class="step-num">01</div>
+      <div class="step-icon">🔍</div>
+      <div class="step-title">We Scan the Markets</div>
+      <div class="step-desc">Our engine crawls 58 bookmakers every 300ms, comparing odds across thousands of matches in real time to identify pricing discrepancies.</div>
+    </div>
+    <div class="step reveal">
+      <div class="step-num">02</div>
+      <div class="step-icon">⚡</div>
+      <div class="step-title">You Get Instant Alerts</div>
+      <div class="step-desc">The moment a profitable arb appears, you receive an instant notification with exact stakes, bookmakers, and guaranteed profit percentage.</div>
+    </div>
+    <div class="step reveal">
+      <div class="step-num">03</div>
+      <div class="step-icon">💰</div>
+      <div class="step-title">Place & Profit</div>
+      <div class="step-desc">Place the indicated bets at each bookmaker. No matter which outcome occurs, you make a profit. Mathematical certainty — not luck.</div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features-section" id="features">
+  <div class="features-layout">
+    <div class="features-left">
+      <div class="section-tag">Features</div>
+      <h2 class="section-title reveal">BUILT FOR<br>SERIOUS<br>BETTORS</h2>
+      <p class="section-sub reveal">Everything you need to execute arbitrage with speed, precision, and confidence.</p>
+      <div class="features-list">
+        <div class="feature-item reveal">
+          <div class="feature-num">01</div>
+          <div class="feature-content">
+            <div class="feature-title">Real-Time Scanner</div>
+            <div class="feature-desc">Sub-second detection across all major bookmakers, 24/7, covering football, basketball, tennis, and more.</div>
+          </div>
+          <div class="feature-arrow">→</div>
+        </div>
+        <div class="feature-item reveal">
+          <div class="feature-num">02</div>
+          <div class="feature-content">
+            <div class="feature-title">Stake Calculator</div>
+            <div class="feature-desc">Auto-calculates exact stakes for each outcome to maximize guaranteed profit based on your bankroll.</div>
+          </div>
+          <div class="feature-arrow">→</div>
+        </div>
+        <div class="feature-item reveal">
+          <div class="feature-num">03</div>
+          <div class="feature-content">
+            <div class="feature-title">Profit Tracker</div>
+            <div class="feature-desc">Full analytics dashboard to track cumulative profit, ROI, and performance across sports and bookmakers.</div>
+          </div>
+          <div class="feature-arrow">→</div>
+        </div>
+        <div class="feature-item reveal">
+          <div class="feature-num">04</div>
+          <div class="feature-content">
+            <div class="feature-title">Instant Push Notifications</div>
+            <div class="feature-desc">Browser, email, and Telegram alerts with customizable profit threshold filters.</div>
+          </div>
+          <div class="feature-arrow">→</div>
+        </div>
+        <div class="feature-item reveal">
+          <div class="feature-num">05</div>
+          <div class="feature-content">
+            <div class="feature-title">Odds History & Comparison</div>
+            <div class="feature-desc">Deep dive into historical odds data to understand patterns and optimize your strategy.</div>
+          </div>
+          <div class="feature-arrow">→</div>
+        </div>
+      </div>
+    </div>
+    <div class="features-visual reveal">
+      <div class="dashboard-preview">
+        <div class="dash-glow"></div>
+        <div class="dash-header">
+          <span class="dash-title">Live Arb Feed</span>
+          <span class="dash-live">Scanning</span>
+        </div>
+        <div class="arb-row">
+          <div>
+            <div class="arb-match">Arsenal vs Chelsea</div>
+            <div class="arb-sport">⚽ Premier League · Bet365 / Pinnacle</div>
+          </div>
+          <div class="arb-pct high">+4.2%</div>
+        </div>
+        <div class="arb-row">
+          <div>
+            <div class="arb-match">Djokovic vs Alcaraz</div>
+            <div class="arb-sport">🎾 ATP · Betway / Unibet</div>
+          </div>
+          <div class="arb-pct high">+6.1%</div>
+        </div>
+        <div class="arb-row">
+          <div>
+            <div class="arb-match">Lakers vs Celtics</div>
+            <div class="arb-sport">🏀 NBA · DraftKings / FanDuel</div>
+          </div>
+          <div class="arb-pct med">+2.8%</div>
+        </div>
+        <div class="arb-row">
+          <div>
+            <div class="arb-match">Chiefs vs Ravens</div>
+            <div class="arb-sport">🏈 NFL · BetMGM / DraftKings</div>
+          </div>
+          <div class="arb-pct med">+3.5%</div>
+        </div>
+        <div class="arb-row">
+          <div>
+            <div class="arb-match">Real Madrid vs Barca</div>
+            <div class="arb-sport">⚽ La Liga · 1xBet / Bwin</div>
+          </div>
+          <div class="arb-pct high">+5.3%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing">
+  <div class="section-tag">Plans</div>
+  <h2 class="section-title reveal">CHOOSE YOUR<br>EDGE</h2>
+  <p class="section-sub reveal">Start free, scale as you profit. No hidden fees, cancel anytime.</p>
+  <div class="pricing-grid">
+    <div class="plan reveal">
+      <div class="plan-corner"></div>
+      <div class="plan-name">STARTER</div>
+      <div class="plan-price">$0</div>
+      <div class="plan-period">/ month forever free</div>
+      <div class="plan-features">
+        <div class="plan-feat">Up to 5 arb alerts per day</div>
+        <div class="plan-feat">10 bookmakers coverage</div>
+        <div class="plan-feat">Basic stake calculator</div>
+        <div class="plan-feat">Email notifications</div>
+        <div class="plan-feat locked">Real-time alerts (&lt;1s)</div>
+        <div class="plan-feat locked">Full 58 bookmakers</div>
+        <div class="plan-feat locked">Profit tracker & analytics</div>
+        <div class="plan-feat locked">API access</div>
+      </div>
+      <a href="#" class="btn-plan btn-plan-outline">Get Started</a>
+    </div>
+    <div class="plan featured reveal">
+      <div class="plan-badge">Most Popular</div>
+      <div class="plan-name">PRO</div>
+      <div class="plan-price">$79</div>
+      <div class="plan-period">/ month · billed monthly</div>
+      <div class="plan-features">
+        <div class="plan-feat">Unlimited arb alerts</div>
+        <div class="plan-feat">Full 58 bookmakers</div>
+        <div class="plan-feat">Advanced stake calculator</div>
+        <div class="plan-feat">Real-time alerts (&lt;0.3s)</div>
+        <div class="plan-feat">Push + Email + Telegram</div>
+        <div class="plan-feat">Full profit tracker</div>
+        <div class="plan-feat">Historical odds data</div>
+        <div class="plan-feat locked">API access</div>
+      </div>
+      <a href="#" class="btn-plan btn-plan-solid">Start 7-Day Free Trial</a>
+    </div>
+    <div class="plan reveal">
+      <div class="plan-corner"></div>
+      <div class="plan-name">ELITE</div>
+      <div class="plan-price">$179</div>
+      <div class="plan-period">/ month · billed monthly</div>
+      <div class="plan-features">
+        <div class="plan-feat">Everything in Pro</div>
+        <div class="plan-feat">Full REST API access</div>
+        <div class="plan-feat">Webhook integrations</div>
+        <div class="plan-feat">Custom profit thresholds</div>
+        <div class="plan-feat">Priority 24/7 support</div>
+        <div class="plan-feat">Multi-account management</div>
+        <div class="plan-feat">Early access to features</div>
+        <div class="plan-feat">Dedicated account manager</div>
+      </div>
+      <a href="#" class="btn-plan btn-plan-outline">Contact Us</a>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="testimonials-section">
+  <div class="section-tag">Testimonials</div>
+  <h2 class="section-title reveal">WHAT OUR<br>MEMBERS SAY</h2>
+  <div class="testimonials-grid">
+    <div class="testi reveal">
+      <div class="stars">★★★★★</div>
+      <div class="testi-quote">Made back my yearly subscription in the first week. The scanner speed is unlike anything else — I catch arbs others miss.</div>
+      <div class="testi-author">
+        <div class="testi-avatar">MK</div>
+        <div>
+          <div class="testi-name">Marcus K.</div>
+          <div class="testi-role">Pro Member · 14 months</div>
+        </div>
+      </div>
+    </div>
+    <div class="testi reveal">
+      <div class="stars">★★★★★</div>
+      <div class="testi-quote">The stake calculator alone is worth the subscription. I used to do all the math manually — now it's instant. Profit up 340% since joining.</div>
+      <div class="testi-author">
+        <div class="testi-avatar">SL</div>
+        <div>
+          <div class="testi-name">Sophie L.</div>
+          <div class="testi-role">Elite Member · 8 months</div>
+        </div>
+      </div>
+    </div>
+    <div class="testi reveal">
+      <div class="stars">★★★★★</div>
+      <div class="testi-quote">I was skeptical at first — no risk gambling sounds too good. But the math is real. Consistent 3-5% returns monthly. This changed my financial life.</div>
+      <div class="testi-author">
+        <div class="testi-avatar">TR</div>
+        <div>
+          <div class="testi-name">Tom R.</div>
+          <div class="testi-role">Pro Member · 22 months</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq-section" id="faq">
+  <div class="faq-layout">
+    <div>
+      <div class="section-tag">FAQ</div>
+      <h2 class="section-title reveal">QUESTIONS<br>ANSWERED</h2>
+      <p class="section-sub reveal">Everything you need to know before getting started.</p>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item reveal">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          <span>Is sports arbitrage legal?</span>
+          <span class="faq-toggle">+</span>
+        </div>
+        <div class="faq-a">Sports arbitrage betting is completely legal in most jurisdictions. It's simply the practice of exploiting odds differences between bookmakers. However, bookmakers may limit accounts that consistently arb — we provide guidance on managing this risk.</div>
+      </div>
+      <div class="faq-item reveal">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          <span>How much money do I need to start?</span>
+          <span class="faq-toggle">+</span>
+        </div>
+        <div class="faq-a">You can start with as little as $500 across 2-3 bookmakers. For meaningful returns, most members start with $2,000–$5,000. Our stake calculator optimizes bet sizes based on your available bankroll.</div>
+      </div>
+      <div class="faq-item reveal">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          <span>What sports and markets do you cover?</span>
+          <span class="faq-toggle">+</span>
+        </div>
+        <div class="faq-a">We cover football (soccer), basketball, tennis, American football, baseball, hockey, MMA, and more. We monitor match winner, over/under, handicap, and various other market types across all major leagues worldwide.</div>
+      </div>
+      <div class="faq-item reveal">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          <span>What if an arb expires before I place?</span>
+          <span class="faq-toggle">+</span>
+        </div>
+        <div class="faq-a">Arbitrage opportunities close fast — that's why our alerts arrive in under 300ms. Pro and Elite members also get odds snapshots so you know the exact price at detection time, helping you decide whether to proceed.</div>
+      </div>
+      <div class="faq-item reveal">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          <span>Can I cancel my subscription anytime?</span>
+          <span class="faq-toggle">+</span>
+        </div>
+        <div class="faq-a">Absolutely. No lock-in contracts. Cancel anytime from your account dashboard and you'll retain access until the end of your billing period. No questions asked.</div>
+      </div>
+      <div class="faq-item reveal">
+        <div class="faq-q" onclick="toggleFaq(this)">
+          <span>Is there a free trial?</span>
+          <span class="faq-toggle">+</span>
+        </div>
+        <div class="faq-a">Yes — Pro members get a full 7-day free trial with all features unlocked. No credit card required to start. If you're not satisfied, you keep the free Starter plan.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="cta-bg"></div>
+  <div class="section-tag" style="justify-content:center">Ready to Start</div>
+  <h2 class="section-title reveal">PROFIT IS<br><span style="color:var(--neon)">GUARANTEED.</span></h2>
+  <p class="section-sub">Join 12,000+ members who are turning mathematical certainty into consistent monthly income.</p>
+  <a href="#pricing" class="btn-primary">Start 7-Day Free Trial</a>
+</section>
+
+<!-- DISCLAIMER -->
+<div class="disclaimer">
+  ⚠️ DISCLAIMER: Sports arbitrage involves financial risk. While arbitrage opportunities offer theoretical guaranteed profit, factors such as account limitations, odds changes during placement, withdrawal restrictions, and bookmaker terms may affect outcomes. ARBX provides informational tools only and does not constitute financial or gambling advice. Please gamble responsibly and in accordance with the laws of your jurisdiction. 18+.
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div class="nav-logo">DUAL<span style="color:var(--neon)">ODDS</span></div>
+      <div class="footer-tagline">The world's fastest sports arbitrage scanner. Built for serious bettors who demand mathematical precision.</div>
+    </div>
+    <div class="footer-col">
+      <h4>Product</h4>
+      <ul>
+        <li><a href="#">Scanner</a></li>
+        <li><a href="#">Calculator</a></li>
+        <li><a href="#">Analytics</a></li>
+        <li><a href="#">API</a></li>
+        <li><a href="#">Pricing</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Company</h4>
+      <ul>
+        <li><a href="#">About</a></li>
+        <li><a href="#">Blog</a></li>
+        <li><a href="#">Careers</a></li>
+        <li><a href="#">Press</a></li>
+        <li><a href="#">Contact</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Legal</h4>
+      <ul>
+        <li><a href="#">Terms of Service</a></li>
+        <li><a href="#">Privacy Policy</a></li>
+        <li><a href="#">Cookie Policy</a></li>
+        <li><a href="#">Disclaimer</a></li>
+        <li><a href="#">Responsible Gaming</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="footer-copy">© 2025 DualOdds. All rights reserved. 18+ · Play Responsibly</div>
+    <div class="footer-social">
+      <a href="#">𝕏</a>
+      <a href="#">in</a>
+      <a href="#">TG</a>
+      <a href="#">YT</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Reveal on scroll
+  const reveals = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        setTimeout(() => e.target.classList.add('visible'), i * 80);
+      }
+    });
+  }, { threshold: 0.1 });
+  reveals.forEach(el => observer.observe(el));
+
+  // FAQ toggle
+  function toggleFaq(el) {
+    const item = el.closest('.faq-item');
+    const wasOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+    if (!wasOpen) item.classList.add('open');
+  }
+
+  // Animate ticker cards
+  const tickers = document.querySelectorAll('.ticker-card');
+  setInterval(() => {
+    tickers.forEach(t => {
+      const profitEl = t.querySelector('.ticker-profit');
+      if (profitEl) {
+        const base = parseFloat(profitEl.textContent);
+        const delta = (Math.random() - 0.5) * 0.4;
+        const newVal = Math.max(1, base + delta).toFixed(1);
+        profitEl.textContent = '+' + newVal + '%';
+      }
+    });
+  }, 3000);
+
+  // Animate dashboard rows
+  const arbRows = document.querySelectorAll('.arb-pct');
+  setInterval(() => {
+    arbRows.forEach(r => {
+      const base = parseFloat(r.textContent);
+      const delta = (Math.random() - 0.5) * 0.6;
+      const newVal = Math.max(0.5, base + delta).toFixed(1);
+      r.textContent = '+' + newVal + '%';
+    });
+  }, 2500);
+</script>
+</body>
+</html>
