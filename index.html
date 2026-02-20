@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>DualOdds — Sports Arbitrage Intelligence</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -697,28 +698,13 @@
   .nav-avatar { width: 34px; height: 34px; background: var(--neon); color: var(--black); font-family: 'Bebas Neue', sans-serif; font-size: 1rem; display: flex; align-items: center; justify-content: center; cursor: pointer; }
   .nav-signout { font-family: 'DM Mono', monospace; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--gray-text); cursor: pointer; text-transform: uppercase; background: none; border: none; transition: color 0.2s; }
   .nav-signout:hover { color: var(--neon); }
-  /* Hamburger */
-  .hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 4px; z-index: 1001; }
-  .hamburger span { display: block; width: 24px; height: 2px; background: var(--white); transition: all 0.3s; }
-  .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-  .hamburger.open span:nth-child(2) { opacity: 0; }
-  .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-  .mobile-menu { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--black); z-index: 999; flex-direction: column; align-items: center; justify-content: center; gap: 2rem; }
-  .mobile-menu.open { display: flex; }
-  .mobile-menu a { font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem; letter-spacing: 0.1em; color: var(--white); text-decoration: none; transition: color 0.2s; }
-  .mobile-menu a:hover { color: var(--neon); }
-  .mobile-menu-btns { display: flex; gap: 1rem; margin-top: 1rem; }
-  .mobile-menu-btns a { font-size: 1rem !important; font-family: 'DM Mono', monospace !important; padding: 0.75rem 2rem; letter-spacing: 0.1em; }
-
+  /* Animations */
   @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
   .reveal.visible { opacity: 1; transform: translateY(0); }
-  
-  /* Tablets and small desktops */
   @media (max-width: 900px) {
     nav { padding: 1.2rem 1.5rem; }
     .nav-links { display: none; }
-    .hamburger { display: flex; }
     .hero { grid-template-columns: 1fr; padding: 7rem 1.5rem 3rem; }
     .hero-right { padding-left: 0; }
     section { padding: 5rem 1.5rem; }
@@ -730,46 +716,11 @@
     .disclaimer { margin: 0 1.5rem 1.5rem; }
     footer .footer-bottom { flex-direction: column; gap: 1rem; }
   }
-
-  /* NEW: Phones and narrow screens */
-  @media (max-width: 600px) {
-    /* Shrink massive hero fonts to prevent horizontal scrolling/word breaks */
-    .hero-headline { font-size: clamp(3.2rem, 12vw, 4.5rem); }
-    
-    /* Make hero buttons full width for easier tapping */
-    .hero-actions { flex-direction: column; width: 100%; }
-    .hero-actions a { width: 100%; text-align: center; }
-    
-    /* Organize the stats bar into a neat 2-column grid instead of messy wrapping */
-    .stats-bar { 
-      display: grid; 
-      grid-template-columns: 1fr 1fr; 
-      gap: 2rem 1rem; 
-    }
-    .stat-item:last-child { grid-column: span 2; } /* Centers the 5th odd item */
-    
-    /* Reduce modal padding so it fits on narrow phone screens */
-    .modal { padding: 2rem 1.5rem; margin: 1rem; }
-    .modal-title { font-size: 1.8rem; }
-    
-    /* Adjust toast notification to be centered on mobile */
-    .toast { 
-      bottom: 1rem; left: 1rem; right: 1rem; 
-      max-width: none; 
-      justify-content: center; 
-    }
-    
-    /* Stack the modal tabs if they get too tight */
-    .modal-tabs { flex-direction: column; gap: 0.5rem; border-bottom: none; }
-    .modal-tab { border-bottom: 1px solid var(--gray-mid); padding: 0.75rem; text-align: left; }
-    .modal-tab.active { border-bottom: 1px solid var(--neon); }
-  }
-  
-  * { touch-action: pan-x pan-y; }
 </style>
 </head>
 <body>
 
+<!-- AUTH MODAL -->
 <div class="modal-overlay" id="authModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal()">✕</button>
@@ -810,18 +761,8 @@
   </div>
 </div>
 
+<!-- TOAST -->
 <div class="toast" id="toast"><span class="toast-icon">✓</span><span id="toastMsg"></span></div>
-<div class="mobile-menu" id="mobileMenu">
-  <a href="#how" onclick="closeMobileMenu()">How It Works</a>
-  <a href="#features" onclick="closeMobileMenu()">Features</a>
-  <a href="#pricing" onclick="closeMobileMenu()">Pricing</a>
-  <a href="#faq" onclick="closeMobileMenu()">FAQ</a>
-  <div class="mobile-menu-btns">
-    <a href="#" onclick="closeMobileMenu(); openModal('login'); return false;" style="background:var(--gray-mid);color:var(--white);text-decoration:none;">Log In</a>
-    <a href="#" onclick="closeMobileMenu(); openModal('signup'); return false;" style="background:var(--neon);color:var(--black);text-decoration:none;">Sign Up</a>
-  </div>
-</div>
-
 <nav>
   <div class="nav-logo">DUAL<span>ODDS</span></div>
   <div class="nav-links" id="navLinks">
@@ -837,11 +778,9 @@
     <div class="nav-avatar" id="navAvatar">U</div>
     <button class="nav-signout" onclick="handleSignOut()">Sign Out</button>
   </div>
-  <div class="hamburger" id="hamburger" onclick="toggleMobileMenu()">
-    <span></span><span></span><span></span>
-  </div>
 </nav>
 
+<!-- HERO -->
 <section class="hero" id="home">
   <div class="hero-grid-lines"></div>
   <div class="hero-left">
@@ -896,6 +835,7 @@
   </div>
 </section>
 
+<!-- STATS BAR -->
 <div class="stats-bar">
   <div class="stat-item">
     <div class="stat-num">2,400+</div>
@@ -919,6 +859,7 @@
   </div>
 </div>
 
+<!-- HOW IT WORKS -->
 <section id="how">
   <div class="section-tag">Process</div>
   <h2 class="section-title reveal">HOW ARBITRAGE<br>WORKS</h2>
@@ -945,6 +886,7 @@
   </div>
 </section>
 
+<!-- FEATURES -->
 <section class="features-section" id="features">
   <div class="features-layout">
     <div class="features-left">
@@ -1041,6 +983,7 @@
   </div>
 </section>
 
+<!-- PRICING -->
 <section id="pricing">
   <div class="section-tag">Plans</div>
   <h2 class="section-title reveal">CHOOSE YOUR<br>EDGE</h2>
@@ -1100,6 +1043,7 @@
   </div>
 </section>
 
+<!-- TESTIMONIALS -->
 <section class="testimonials-section">
   <div class="section-tag">Testimonials</div>
   <h2 class="section-title reveal">WHAT OUR<br>MEMBERS SAY</h2>
@@ -1140,6 +1084,7 @@
   </div>
 </section>
 
+<!-- FAQ -->
 <section class="faq-section" id="faq">
   <div class="faq-layout">
     <div>
@@ -1194,6 +1139,7 @@
   </div>
 </section>
 
+<!-- CTA -->
 <section class="cta-section">
   <div class="cta-bg"></div>
   <div class="section-tag" style="justify-content:center">Ready to Start</div>
@@ -1202,10 +1148,12 @@
   <a href="#pricing" class="btn-primary">Choose Your Plan</a>
 </section>
 
+<!-- DISCLAIMER -->
 <div class="disclaimer">
   ⚠️ DISCLAIMER: Sports arbitrage involves financial risk. While arbitrage opportunities offer theoretical guaranteed profit, factors such as account limitations, odds changes during placement, withdrawal restrictions, and bookmaker terms may affect outcomes. ARBX provides informational tools only and does not constitute financial or gambling advice. Please gamble responsibly and in accordance with the laws of your jurisdiction. 18+.
 </div>
 
+<!-- FOOTER -->
 <footer>
   <div class="footer-grid">
     <div class="footer-brand">
@@ -1283,17 +1231,6 @@
   }
 
   // ── MODAL ───────────────────────────────────
-  function toggleMobileMenu() {
-    const menu = document.getElementById('mobileMenu');
-    const hamburger = document.getElementById('hamburger');
-    menu.classList.toggle('open');
-    hamburger.classList.toggle('open');
-  }
-  function closeMobileMenu() {
-    document.getElementById('mobileMenu').classList.remove('open');
-    document.getElementById('hamburger').classList.remove('open');
-  }
-
   function openModal(tab) {
     document.getElementById('authModal').classList.add('open');
     if (tab) switchTab(tab);
