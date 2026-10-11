@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dualodds"
+version = "0.1.0"
+description = "Çok kaynaklı futbol analiz ve olasılık motoru + yapay zeka analist ajanları"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "scipy>=1.11",
+    "pydantic>=2.5",
+]
+
+[project.optional-dependencies]
+agents = ["anthropic>=1.13"]
+dev = ["pytest>=8", "anthropic>=1.13"]
+
+[project.scripts]
+dualodds = "dualodds.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
