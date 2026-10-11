@@ -29,9 +29,12 @@ Video analizleri Gemini'ye para ödenerek üretildiği için kaybolmamalı.
 | `GEMINI_API_KEY` | Gemini anahtarın | Video izleme |
 | `YOUTUBE_API_KEY` | YouTube Data API anahtarın | Özet videosu arama |
 | `ANTHROPIC_API_KEY` | Claude anahtarın | Analist raporu (`/analyze`) |
+| `SPORTMONKS_API_TOKEN` | Sportmonks token'ı | Maç istatistikleri, kadro, sakatlık, xG (entegrasyon sırada) |
+| `ODDS_API_KEY` | The Odds API anahtarı | Oran hareketleri (entegrasyon sırada) |
 | `ADMIN_TOKEN` | Uzun, rastgele bir parola | API'yi korur. Örnek üretim: `openssl rand -hex 32` |
 | `SCHEDULER_ENABLED` | `true` | Otomatik haftalık tarama |
-| `SCAN_LIMIT` | `20` (isteğe bağlı) | Tek taramada en fazla kaç yeni video (maliyet sınırı) |
+| `SCAN_LIMIT` | `20` (isteğe bağlı) | Tek taramada en fazla kaç yeni maç özeti (maliyet sınırı) |
+| `TACTICAL_LIMIT` | `10` (isteğe bağlı) | Tek taramada en fazla kaç yeni taktik video |
 | `SCHEDULE_CRON` | `0 6 * * 2,5` (isteğe bağlı) | Salı ve Cuma 06:00 (İstanbul) |
 | `DUALODDS_GEMINI_MODEL` | (isteğe bağlı) | Varsayılan `gemini-3.8-flash` |
 
@@ -84,7 +87,11 @@ curl $URL/jobs -H "$T"
 | GET | `/status` | Veri, zamanlayıcı ve anahtar durumu |
 | POST | `/jobs/refresh-data` | Maç verisini yenile |
 | POST | `/jobs/video-scan` | Özetleri bul ve izlet (`since`, `until`, `team`, `limit`, `fps`) |
-| POST | `/jobs/weekly` | Zamanlanmış işi elle tetikle (yenile + son `SCAN_DAYS` gün) |
+| POST | `/jobs/tactical-scan` | Taktik kanallarının yeni videolarını analiz et (`since`, `limit`) |
+| GET | `/video/channels` | İzlenen kanallar ve çözülen kanal ID'leri |
+| GET | `/video/tactical/{team}` | Takımın taktik video notları |
+| GET | `/video/matchup?home=&away=` | İki takımın taktik eşleşmesi |
+| POST | `/jobs/weekly` | Zamanlanmış işi elle tetikle (yenile + son `SCAN_DAYS` günün özetleri ve taktik videoları) |
 | GET | `/jobs`, `/jobs/{id}` | İş listesi ve detayı |
 | GET | `/matches?team=` | Maçlar ve oranlar |
 | GET | `/teams` | Model güç tablosu |
@@ -98,7 +105,8 @@ Aynı anda tek bir veri işi çalışır. İkinci bir iş istersen `409` döner.
 
 ## Maliyet kontrolü
 
-- Video taramasında her maç için bir YouTube araması (ücretsiz kotadan 100 birim) ve bir Gemini video analizi yapılır.
+- YouTube'da arama yapılmaz; kanalların yükleme listeleri gezilir (50 video için 1 birim). Kanal ID'si handle ile bulunamazsa bir kez arama yapılır (100 birim) ve sonuç önbelleğe yazılır.
+- Her yeni maç özeti ve her yeni taktik video için bir Gemini analizi yapılır.
 - Daha önce analiz edilen maç tekrar analiz edilmez.
 - `SCAN_LIMIT` tek bir taramadaki üst sınırdır.
 - `fps` parametresini artırmak hızlı aksiyonları daha iyi yakalar, ama Gemini maliyetini aynı oranda artırır.

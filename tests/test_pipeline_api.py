@@ -166,3 +166,37 @@ def test_video_scan_fails_fast_without_keys(settings, monkeypatch):
     monkeypatch.setenv("YOUTUBE_API_KEY", "x")
     with pytest.raises(RuntimeError, match="GEMINI_API_KEY"):
         video_scan(load_matches(settings), VideoStore(settings.video_dir), since="2020-01-01", log=lambda _: None)
+
+
+def test_api_tactical_endpoints(settings, tmp_path):
+    from fake_youtube import FakeYouTube
+    from test_tactical import _FakeGemini, _tactics
+
+    from dualodds.video.tactical import analyze_tactical_video
+
+    yt = FakeYouTube(
+        channels={
+            "@SkySportsPremierLeague": ("UCsky", "Sky Sports Premier League", "UUsky"),
+            "@tifo": ("UCtifo", "Tifo Football", "UUtifo"),
+        },
+        uploads={"UUtifo": [("a1", "How Arsenal build up", "2026-10-01T10:00:00Z")]},
+    )
+
+    def analyzer(up, channel):
+        return analyze_tactical_video(up, channel, client=_FakeGemini([_tactics("Arsenal", ["high_press"], vulnerable=["counter_attack"])]), model="m")
+
+    client = TestClient(create_app(settings, yt=yt, tactical_analyzer=analyzer))
+    h = {"Authorization": "Bearer secret"}
+    ch = client.get("/video/channels", headers=h).json()
+    assert {c["channel_id"] for c in ch["channels"]} >= {"UCsky", "UCtifo"}
+
+    r = client.post("/jobs/tactical-scan", json={"since": "2026-09-01"}, headers=h).json()
+    job = _wait(client, r["job_id"], h)
+    assert job["status"] == "done", job
+    assert job["result"]["analyzed"][0]["teams"] == ["Arsenal"]
+
+    notes = client.get("/video/tactical/Arsenal", headers=h).json()
+    assert notes and notes[0]["style_tags"] == ["high_press"]
+    m = client.get("/video/matchup", params={"home": "Arsenal", "away": "Chelsea"}, headers=h).json()
+    assert m["sources"] == {"home": 1, "away": 0}
+    assert client.get("/status", headers=h).json()["tactical_analyses"] == 1

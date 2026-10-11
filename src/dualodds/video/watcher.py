@@ -38,6 +38,35 @@ class VideoAnalysisError(RuntimeError):
     pass
 
 
+def gemini_video_json(video_url: str, prompt: str, schema, fps: float | None = None, model: str | None = None, client=None):
+    """Gemini'ye herkese açık bir YouTube videosunu izletir, `schema` (pydantic) tipinde döndürür."""
+    from google import genai
+    from google.genai import types
+
+    model = model or os.environ.get("DUALODDS_GEMINI_MODEL", DEFAULT_MODEL)
+    client = client or genai.Client()
+    video_part = types.Part(
+        file_data=types.FileData(file_uri=video_url),
+        # Hızlı aksiyonlar için örnekleme hızı artırılabilir (token maliyeti orantılı artar)
+        video_metadata=types.VideoMetadata(fps=fps) if fps else None,
+    )
+    response = client.models.generate_content(
+        model=model,
+        contents=types.Content(role="user", parts=[video_part, types.Part(text=prompt)]),
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=schema,
+            media_resolution=types.MediaResolution.MEDIA_RESOLUTION_LOW,
+        ),
+    )
+    parsed = response.parsed
+    if isinstance(parsed, schema):
+        return parsed
+    if not response.text:
+        raise VideoAnalysisError(f"Gemini boş yanıt döndürdü: {video_url}")
+    return schema.model_validate_json(response.text)
+
+
 def watch_highlights(
     video_url: str,
     home: str,
@@ -51,38 +80,14 @@ def watch_highlights(
     client=None,
 ) -> StoredVideoAnalysis:
     """Videoyu Gemini'ye izletir ve saklanmaya hazır kayıt döndürür."""
-    from google import genai
-    from google.genai import types
-
     model = model or os.environ.get("DUALODDS_GEMINI_MODEL", DEFAULT_MODEL)
-    client = client or genai.Client()
-
     prompt = PROMPT.format(
         home=entities.team(home).name,
         away=entities.team(away).name,
         match_date=match_date,
         score_hint=f" Resmî sonuç: {score}." if score else "",
     )
-    video_part = types.Part(
-        file_data=types.FileData(file_uri=video_url),
-        # Hızlı aksiyonlar için örnekleme hızı artırılabilir (token maliyeti orantılı artar)
-        video_metadata=types.VideoMetadata(fps=fps) if fps else None,
-    )
-    response = client.models.generate_content(
-        model=model,
-        contents=types.Content(role="user", parts=[video_part, types.Part(text=prompt)]),
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=MatchVideoAnalysis,
-            media_resolution=types.MediaResolution.MEDIA_RESOLUTION_LOW,
-        ),
-    )
-
-    analysis = response.parsed
-    if not isinstance(analysis, MatchVideoAnalysis):
-        if not response.text:
-            raise VideoAnalysisError(f"Gemini boş yanıt döndürdü: {video_url}")
-        analysis = MatchVideoAnalysis.model_validate_json(response.text)
+    analysis = gemini_video_json(video_url, prompt, MatchVideoAnalysis, fps=fps, model=model, client=client)
 
     return StoredVideoAnalysis(
         match_date=str(match_date)[:10],

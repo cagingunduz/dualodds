@@ -106,6 +106,23 @@ yeniden üretilecek tek doğru ölçüttür.
 | Takvim/seyahat | Fikstür + stadyum koordinatları | Yorgunluk, Avrupa kupası etkisi | Kendimiz hesaplarız |
 | Video / maç özetleri | Lisanslı platformlar (ör. Wyscout/Hudl video) | Taktik kurgu analizi | **Telif! Aşağıya bakın** |
 
+### Video kaynakları
+
+İki tür kanal izlenir (`video/channels.py`):
+
+| Kanal | Tür | Ne çıkarılır |
+|---|---|---|
+| Sky Sports Premier League | Maç özeti | Maç başına her gol/pozisyonun kökeni, koridoru, savunma hatası |
+| Tifo Football by The Athletic, Football Made Simple, Football Meta, The Coaches' Voice, Adam Clery | Taktik analiz | Takım başına teknik direktör, dönem, oyun tarzı etiketleri, hücum örüntüleri, zaaflar, iyi oynadığı ve zorlandığı rakip tarzları |
+
+Taktik videolar `video/tactical.py` ile işlenir. Her takım için standart tarz
+etiketleri (önde pres, derin blok, kontra, orta ağırlıklı hücum...) ve
+"zorlandığı tarzlar" çıkarılır. `tactical_matchup` bir takımın tarzının
+rakibin zorlandığı tarzlarla örtüşüp örtüşmediğini gösterir. Notlar yayın
+tarihine ve teknik direktöre bağlıdır, 180 günden eskileri kullanılmaz.
+Yorumcu içeriği yeniden yayınlanmaz; yalnızca çıkarılan bilgi ve kaynak linki
+saklanır.
+
 ### Maç özetlerinden taktik analizi: video ajanı (uygulandı)
 
 Claude API video girdisi kabul etmiyor. YouTube videosundan kare çıkarmak için
@@ -324,7 +341,10 @@ src/dualodds/
   agents/analyst.py              Claude analist ajanı
   agents/report.py               Rapor şeması (sayılar koddan, yorum LLM'den)
   data/entities.py               Takım adı eşleştirme (Premier League)
-  video/finder.py                YouTube'da maç özeti bulma ve puanlama
+  video/youtube.py               YouTube Data API istemcisi (düşük kota)
+  video/channels.py              İzlenen kanallar ve kanal ID çözümü
+  video/tactical.py              Taktik analiz videoları, takım profili, taktik eşleşme
+  video/finder.py                Özet kanalında maç özeti bulma ve puanlama
   video/watcher.py               Gemini video izleme ajanı
   video/schema.py                Video gözlem şeması
   video/store.py                 Video analiz deposu

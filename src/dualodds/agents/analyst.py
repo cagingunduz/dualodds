@@ -25,7 +25,8 @@ SYSTEM_PROMPT = """Sen DualOdds platformunun kıdemli futbol analistisin. Abonel
 Çalışma ilkeleri:
 - Olasılıklar ve beklenen goller istatistiksel modelden gelir. Rakam uydurma; araçların döndürdüğü sayıları kullan.
 - Senin katkın yorumdur: modelin neyi yakalayıp neyi kaçırabileceğini (sakatlık, rotasyon, motivasyon, stil eşleşmesi, takvim yoğunluğu) açıkla.
-- Video izci profili (varsa) maç özetlerinden çıkarılmıştır: tekrar eden örüntüleri (ör. hep aynı koridordan gol yemek) değerli say, tek maçlık gözlemleri ve pres/oyun kurma yorumlarını temkinli kullan.
+- Video izci profili (varsa) iki kaynaktan gelir. Maç özetleri: tekrar eden örüntüleri (ör. hep aynı koridordan gol yemek) değerli say, tek maçlık gözlemleri temkinli kullan. Taktik analiz videoları: uzman yorumudur; yayın tarihine ve teknik direktöre dikkat et, eski veya farklı teknik direktör dönemine ait notları geçersiz say. Kaynak kanal adını belirt.
+- Taktik eşleşme sinyallerini (ör. iki takımın da hücumu güçlü, savunması zayıf → karşılıklı gol ihtimali) modelin sayılarıyla tutarlıysa destekleyici, çelişiyorsa sorgulanacak bir bulgu olarak yaz.
 - Model ile piyasa arasında büyük fark varsa önce piyasanın bildiği bir şey olabileceğini düşün; farkı otomatik olarak "değer" sayma.
 - Belirsizliği dürüstçe yaz. Kesin sonuç vaat eden ifadeler kullanma.
 - Raporu Türkçe yaz ve işin sonunda mutlaka submit_report aracını çağır."""
@@ -82,11 +83,11 @@ def _build_tools(ctx: tools.AnalysisContext, home: str, away: str, sink: dict):
 
     toolset = [get_model_probabilities, get_team_form, get_head_to_head]
 
-    if ctx.video_store is not None:
+    if ctx.has_video:
 
         @beta_tool
         def get_video_scouting(team: str, last_n: int = 5) -> str:
-            """Takımın son maç özeti videolarından çıkarılmış izci profilini döndürür: pozisyonların nasıl üretildiği/yendiği, hangi koridorlar, tekrar eden savunma zaafları, gözlenen pres ve oyun kurma tarzı.
+            """Takımın video izci profilini döndürür: maç özetlerinden pozisyonların nasıl üretildiği/yendiği, koridorlar ve tekrar eden savunma zaafları; taktik analiz videolarından (Tifo, Football Meta vb.) teknik direktör, oyun tarzı, hücum örüntüleri ve zayıflıklar.
 
             Args:
                 team: Takım adı (veri setindeki yazımıyla).
@@ -95,6 +96,15 @@ def _build_tools(ctx: tools.AnalysisContext, home: str, away: str, sink: dict):
             return json.dumps(tools.video_scouting(ctx, team, last_n), ensure_ascii=False)
 
         toolset.append(get_video_scouting)
+
+    if ctx.tactical_store is not None:
+
+        @beta_tool
+        def get_tactical_matchup() -> str:
+            """Bu maçtaki iki takımın taktik etiketlerini karşılaştırır: bir takımın oynadığı tarz, rakibinin taktik videolarda zorlandığı tarzlarla örtüşüyor mu (ör. önde pres yapan takım vs. pres altında zorlanan takım)."""
+            return json.dumps(tools.matchup(ctx, home, away), ensure_ascii=False)
+
+        toolset.append(get_tactical_matchup)
 
     return [*toolset, submit_report]
 

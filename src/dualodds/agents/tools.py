@@ -8,6 +8,7 @@ olarak eklenir; ajan hangi aracı ne zaman çağıracağına kendisi karar verir
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timezone
 
 import numpy as np
 import pandas as pd
@@ -17,6 +18,7 @@ from dualodds.evaluation.odds import devig_shin, expected_value, kelly_fraction,
 from dualodds.models.dixon_coles import DixonColesModel
 from dualodds.video.profile import team_profile
 from dualodds.video.store import VideoStore
+from dualodds.video.tactical import TacticalStore, tactical_matchup
 
 OUTCOME_LABELS = ("1", "X", "2")
 
@@ -26,13 +28,22 @@ class AnalysisContext:
     matches: pd.DataFrame
     model: DixonColesModel
     video_store: VideoStore | None = None
+    tactical_store: TacticalStore | None = None
 
     @classmethod
     def build(
-        cls, matches: pd.DataFrame, as_of: pd.Timestamp | str | None = None, video_store: VideoStore | None = None
+        cls,
+        matches: pd.DataFrame,
+        as_of: pd.Timestamp | str | None = None,
+        video_store: VideoStore | None = None,
+        tactical_store: TacticalStore | None = None,
     ) -> "AnalysisContext":
         hist = matches if as_of is None else matches[matches["date"] < pd.Timestamp(as_of)]
-        return cls(matches=hist, model=DixonColesModel().fit(hist), video_store=video_store)
+        return cls(matches=hist, model=DixonColesModel().fit(hist), video_store=video_store, tactical_store=tactical_store)
+
+    @property
+    def has_video(self) -> bool:
+        return self.video_store is not None or self.tactical_store is not None
 
     def known_teams(self) -> list[str]:
         return list(self.model.teams)
@@ -119,9 +130,28 @@ def market_comparison(ctx: AnalysisContext, home: str, away: str, odds_home: flo
     return {"bookmaker_margin": round(overround(odds), 4), "outcomes": rows}
 
 
+def _as_of(ctx: AnalysisContext):
+    return ctx.model.fitted_as_of.to_pydatetime().replace(tzinfo=timezone.utc) if ctx.model.fitted_as_of is not None else None
+
+
 def video_scouting(ctx: AnalysisContext, team: str, last_n: int = 5) -> dict:
-    """Takımın son maç özetlerinden çıkarılmış birleşik video izci profili."""
-    if ctx.video_store is None:
-        return {"team": team, "matches_analyzed": 0, "note": "Video deposu bağlı değil."}
-    as_of = str(ctx.model.fitted_as_of.date()) if ctx.model.fitted_as_of is not None else None
-    return team_profile(team, ctx.video_store.for_team(team, last_n=last_n, before=as_of))
+    """Takımın maç özeti profili + taktik analiz videolarından notlar."""
+    out: dict = {"team": team}
+    if ctx.video_store is not None:
+        as_of = str(ctx.model.fitted_as_of.date()) if ctx.model.fitted_as_of is not None else None
+        out["highlights"] = team_profile(team, ctx.video_store.for_team(team, last_n=last_n, before=as_of))
+    if ctx.tactical_store is not None:
+        out["tactical_notes"] = ctx.tactical_store.for_team(team, as_of=_as_of(ctx))
+    if len(out) == 1:
+        out["note"] = "Video deposu bağlı değil."
+    return out
+
+
+def matchup(ctx: AnalysisContext, home: str, away: str) -> dict:
+    """İki takımın taktik etiketlerinin karşılaştırması (kim kimin zorlandığı tarzda oynuyor)."""
+    if ctx.tactical_store is None:
+        return {"note": "Taktik video deposu bağlı değil."}
+    as_of = _as_of(ctx)
+    return tactical_matchup(
+        home, away, ctx.tactical_store.for_team(home, as_of=as_of), ctx.tactical_store.for_team(away, as_of=as_of)
+    )

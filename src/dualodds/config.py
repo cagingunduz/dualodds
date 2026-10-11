@@ -22,7 +22,8 @@ class Settings:
     schedule_cron: str = "0 6 * * 2,5"  # Salı (hafta sonu maçları) ve Cuma (hafta içi maçları) 06:00
     timezone: str = "Europe/Istanbul"
     scan_days: int = 8  # Zamanlanmış taramada geriye kaç gün bakılacağı
-    scan_limit: int = 20  # Tek taramada en fazla kaç yeni video (maliyet sınırı)
+    scan_limit: int = 20  # Tek taramada en fazla kaç yeni maç özeti (maliyet sınırı)
+    tactical_limit: int = 10  # Tek taramada en fazla kaç yeni taktik video
 
     @property
     def raw_dir(self) -> Path:
@@ -31,6 +32,14 @@ class Settings:
     @property
     def video_dir(self) -> Path:
         return self.data_dir / "lake" / "video"
+
+    @property
+    def tactical_dir(self) -> Path:
+        return self.data_dir / "lake" / "tactical"
+
+    @property
+    def channels_cache(self) -> Path:
+        return self.data_dir / "lake" / "channels.json"
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -45,4 +54,5 @@ class Settings:
             timezone=env.get("SCHEDULE_TZ", cls.timezone),
             scan_days=int(env.get("SCAN_DAYS", cls.scan_days)),
             scan_limit=int(env.get("SCAN_LIMIT", cls.scan_limit)),
+            tactical_limit=int(env.get("TACTICAL_LIMIT", cls.tactical_limit)),
         )

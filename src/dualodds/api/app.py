@@ -23,9 +23,10 @@ from dualodds import __version__
 from dualodds.api.jobs import JobBusy, JobManager
 from dualodds.config import Settings
 from dualodds.models import DixonColesModel
-from dualodds.pipeline import load_matches, refresh_matches, video_scan, weekly_job
+from dualodds.pipeline import load_matches, refresh_matches, resolve_default_channels, tactical_job, video_scan, weekly_job
 from dualodds.video.profile import team_profile
 from dualodds.video.store import VideoStore
+from dualodds.video.tactical import TacticalStore, tactical_matchup
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -38,6 +39,11 @@ class VideoScanRequest(BaseModel):
     fps: float | None = None
 
 
+class TacticalScanRequest(BaseModel):
+    since: date | None = None  # Varsayılan: SCAN_DAYS gün önce
+    limit: int | None = None  # Varsayılan: TACTICAL_LIMIT
+
+
 class AnalyzeRequest(BaseModel):
     home: str
     away: str
@@ -46,15 +52,24 @@ class AnalyzeRequest(BaseModel):
     use_video: bool = True
 
 
-def create_app(settings: Settings | None = None, finder=None, watcher=None, source=None, analyst_client=None) -> FastAPI:
-    """`finder`, `watcher`, `source`, `analyst_client` testlerde sahte nesne vermek içindir."""
+def create_app(
+    settings: Settings | None = None, finder=None, watcher=None, source=None, analyst_client=None, yt=None, tactical_analyzer=None
+) -> FastAPI:
+    """Anahtar kelime parametreleri testlerde sahte nesne vermek içindir."""
     settings = settings or Settings.from_env()
     jobs = JobManager()
     store = VideoStore(settings.video_dir)
+    tstore = TacticalStore(settings.tactical_dir)
     model_cache: dict = {}
 
     def submit_weekly(params: dict | None = None):
-        return jobs.submit("weekly", lambda log: weekly_job(settings, log=log, finder=finder, watcher=watcher, source=source), params)
+        return jobs.submit(
+            "weekly",
+            lambda log: weekly_job(
+                settings, log=log, finder=finder, watcher=watcher, source=source, yt=yt, tactical_analyzer=tactical_analyzer
+            ),
+            params,
+        )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -122,8 +137,12 @@ def create_app(settings: Settings | None = None, finder=None, watcher=None, sour
             "data_dir": str(settings.data_dir),
             "matches": n_matches,
             "video_analyses": len(store.all()),
+            "tactical_analyses": len(tstore.all()),
             "scheduler": {"enabled": settings.scheduler_enabled, "cron": settings.schedule_cron, "tz": settings.timezone},
-            "keys": {k: bool(os.environ.get(k)) for k in ("GEMINI_API_KEY", "YOUTUBE_API_KEY", "ANTHROPIC_API_KEY")},
+            "keys": {
+                k: bool(os.environ.get(k))
+                for k in ("GEMINI_API_KEY", "YOUTUBE_API_KEY", "ANTHROPIC_API_KEY", "SPORTMONKS_API_TOKEN", "ODDS_API_KEY")
+            },
         }
 
     @app.post("/jobs/refresh-data", dependencies=[Admin])
@@ -139,9 +158,18 @@ def create_app(settings: Settings | None = None, finder=None, watcher=None, sour
             return video_scan(
                 load_matches(settings), store, since=since, until=req.until, team=req.team,
                 limit=limit, fps=req.fps, finder=finder, watcher=watcher, log=log,
+                channels_cache=settings.channels_cache,
             )
 
         return submit("video-scan", run, {**req.model_dump(mode="json"), "since": str(since), "limit": limit})
+
+    @app.post("/jobs/tactical-scan", dependencies=[Admin])
+    def job_tactical_scan(req: TacticalScanRequest):
+        return submit(
+            "tactical-scan",
+            lambda log: tactical_job(settings, since=req.since, limit=req.limit, yt=yt, analyzer=tactical_analyzer, log=log),
+            req.model_dump(mode="json"),
+        )
 
     @app.post("/jobs/weekly", dependencies=[Admin])
     def job_weekly():
@@ -217,13 +245,36 @@ def create_app(settings: Settings | None = None, finder=None, watcher=None, sour
     def video_profile(team: str, last_n: int = Query(5, ge=1, le=38)):
         return team_profile(team, store.for_team(team, last_n=last_n))
 
+    @app.get("/video/channels", dependencies=[Admin])
+    def video_channels():
+        """İzlenen kanalları çözer (ilk seferde YouTube'a sorar, sonra önbellekten)."""
+        logs: list[str] = []
+        try:
+            _, channels = resolve_default_channels(settings.channels_cache, logs.append, yt)
+        except RuntimeError as e:
+            raise HTTPException(503, str(e)) from None
+        return {"channels": [c.__dict__ for c in channels], "log": logs}
+
+    @app.get("/video/tactical/{team}", dependencies=[Admin])
+    def video_tactical(team: str, max_age_days: int = Query(180, ge=1, le=730)):
+        return tstore.for_team(team, max_age_days=max_age_days, last_n=20)
+
+    @app.get("/video/matchup", dependencies=[Admin])
+    def video_matchup(home: str, away: str):
+        return tactical_matchup(home, away, tstore.for_team(home), tstore.for_team(away))
+
     @app.post("/analyze", dependencies=[Admin])
     def analyze(req: AnalyzeRequest):
         from dualodds.agents.analyst import AnalystError, analyze_match
         from dualodds.agents.tools import AnalysisContext
 
         model, df = fitted_model()
-        ctx = AnalysisContext(matches=df, model=model, video_store=store if req.use_video else None)
+        ctx = AnalysisContext(
+            matches=df,
+            model=model,
+            video_store=store if req.use_video else None,
+            tactical_store=tstore if req.use_video else None,
+        )
         try:
             report = analyze_match(ctx, req.home, req.away, odds=req.odds, notes=req.notes, client=analyst_client)
         except KeyError as e:

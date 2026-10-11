@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 
 import pandas as pd
 
@@ -64,16 +65,20 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     from dualodds.agents.analyst import analyze_match
     from dualodds.agents.tools import AnalysisContext
 
+    from dualodds.video.tactical import TacticalStore
+
     store = VideoStore(args.video_dir) if args.video_dir else None
-    ctx = AnalysisContext.build(_load(args.csv), video_store=store)
+    tstore = TacticalStore(Path(args.video_dir).parent / "tactical") if args.video_dir else None
+    ctx = AnalysisContext.build(_load(args.csv), video_store=store, tactical_store=tstore)
     report = analyze_match(ctx, args.home, args.away, odds=tuple(args.odds) if args.odds else None, notes=args.notes)
     print(report.to_markdown())
 
 
 def cmd_video_find(args: argparse.Namespace) -> None:
-    from dualodds.video.finder import find_highlights
+    from dualodds.pipeline import default_finder
 
-    for c in find_highlights(args.home, args.away, args.date):
+    finder = default_finder(Path(DEFAULT_DIR).parent / "channels.json")
+    for c in finder(args.home, args.away, args.date):
         print(f"{c.score:5.2f}  {c.published_at:%Y-%m-%d}  {c.channel:<28} {c.title}\n       {c.url}")
 
 
@@ -100,10 +105,53 @@ def cmd_video_scan(args: argparse.Namespace) -> None:
 
     summary = video_scan(
         _load(args.csv), VideoStore(args.video_dir), since=args.since, until=args.until,
-        team=args.team, limit=args.limit, fps=args.fps,
+        team=args.team, limit=args.limit, fps=args.fps, channels_cache=Path(args.video_dir).parent / "channels.json",
     )
     print(f"\n{len(summary['analyzed'])} yeni maç analiz edildi, {summary['skipped_existing']} maç zaten vardı, "
           f"{len(summary['not_found'])} özet bulunamadı, {len(summary['errors'])} hata.")
+
+
+def cmd_video_channels(args: argparse.Namespace) -> None:
+    from dualodds.pipeline import resolve_default_channels
+
+    yt, channels = resolve_default_channels(Path(args.video_dir).parent / "channels.json")
+    for c in channels:
+        print(f"{c.kind:<10} {c.name:<32} → '{c.title}'  https://www.youtube.com/channel/{c.channel_id}")
+    print(f"\nYouTube kota kullanımı: {yt.units_used} birim")
+
+
+def cmd_video_tactical_scan(args: argparse.Namespace) -> None:
+    from dataclasses import replace
+
+    from dualodds.config import Settings
+    from dualodds.pipeline import tactical_job
+
+    settings = replace(Settings.from_env(), data_dir=Path(args.video_dir).parent.parent)
+    s = tactical_job(settings, since=args.since, limit=args.limit)
+    print(
+        f"\n{len(s['analyzed'])} video analiz edildi, {s['skipped_existing']} zaten vardı, "
+        f"{len(s['skipped_no_pl_team'])} PL takımı geçmediği için, {len(s['skipped_duration'])} süre nedeniyle atlandı, "
+        f"{len(s['errors'])} hata. YouTube kotası: {s['youtube_units_used']} birim"
+    )
+    if s["skipped_no_pl_team"]:
+        print("\nPL takımı geçmediği için atlananlar (teknik direktör adıyla anılan takımlar burada olabilir):")
+        for t in s["skipped_no_pl_team"]:
+            print(f"  - {t}")
+
+
+def cmd_video_tactics(args: argparse.Namespace) -> None:
+    from dualodds.video.tactical import TacticalStore
+
+    store = TacticalStore(Path(args.video_dir).parent / "tactical")
+    print(json.dumps(store.for_team(args.team, max_age_days=args.max_age_days), indent=2, ensure_ascii=False))
+
+
+def cmd_video_matchup(args: argparse.Namespace) -> None:
+    from dualodds.video.tactical import TacticalStore, tactical_matchup
+
+    store = TacticalStore(Path(args.video_dir).parent / "tactical")
+    m = tactical_matchup(args.home, args.away, store.for_team(args.home), store.for_team(args.away))
+    print(json.dumps(m, indent=2, ensure_ascii=False))
 
 
 def cmd_video_profile(args: argparse.Namespace) -> None:
@@ -152,6 +200,22 @@ def main(argv: list[str] | None = None) -> None:
     vw = vsub.add_parser("watch", help="Tek bir videoyu izlet ve kaydet (GEMINI_API_KEY)")
     vs = vsub.add_parser("scan", help="CSV'deki maçların özetlerini bul, izlet, kaydet")
     vp = vsub.add_parser("profile", help="Takımın birleşik video izci profili")
+    vc = vsub.add_parser("channels", help="İzlenen YouTube kanallarını çöz ve listele")
+    vt = vsub.add_parser("tactical-scan", help="Taktik kanallarının yeni videolarını analiz et")
+    vtt = vsub.add_parser("tactics", help="Takımın taktik analiz notları")
+    vm = vsub.add_parser("matchup", help="İki takımın taktik eşleşmesi")
+    vt.add_argument("--since", help="YYYY-AA-GG (varsayılan: SCAN_DAYS gün önce)")
+    vt.add_argument("--limit", type=int)
+    vtt.add_argument("--team", required=True)
+    vtt.add_argument("--max-age-days", type=int, default=180)
+    vm.add_argument("--home", required=True)
+    vm.add_argument("--away", required=True)
+    for sp in (vc, vt, vtt, vm):
+        sp.add_argument("--video-dir", default=str(DEFAULT_DIR))
+    vc.set_defaults(fn=cmd_video_channels)
+    vt.set_defaults(fn=cmd_video_tactical_scan)
+    vtt.set_defaults(fn=cmd_video_tactics)
+    vm.set_defaults(fn=cmd_video_matchup)
     for sp in (vf, vw):
         sp.add_argument("--home", required=True)
         sp.add_argument("--away", required=True)

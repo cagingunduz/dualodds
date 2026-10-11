@@ -58,6 +58,12 @@ dualodds video scan --csv data/raw/E0_2627.csv --since 2026-09-01 --limit 10
 # Takımın birleşik video profili
 dualodds video profile --team Arsenal
 
+# Taktik analiz kanalları (Tifo, Football Made Simple, Football Meta, Coaches' Voice, Adam Clery)
+dualodds video channels
+dualodds video tactical-scan --since 2026-09-01 --limit 5
+dualodds video tactics --team Arsenal
+dualodds video matchup --home Arsenal --away Chelsea
+
 # Video profilini de kullanan analist raporu
 dualodds analyze --csv data/raw/E0_2627.csv --home Arsenal --away Chelsea --video-dir data/lake/video
 ```

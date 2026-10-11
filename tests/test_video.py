@@ -8,7 +8,7 @@ from dualodds.agents import tools
 from dualodds.agents.analyst import _build_tools
 from dualodds.data import entities
 from dualodds.video import MatchVideoAnalysis, VideoStore
-from dualodds.video.finder import find_highlights, score_candidate
+from dualodds.video.finder import HighlightFinder, score_candidate
 from dualodds.video.profile import team_profile
 from dualodds.video.watcher import watch_highlights
 
@@ -74,34 +74,44 @@ def test_entities_alias_matching():
     assert entities.team("Nott'm Forest").name == "Nottingham Forest"
 
 
-def test_score_candidate_prefers_official_highlights():
+def test_score_candidate():
     d = date(2026, 9, 20)
     pub = datetime(2026, 9, 20, 19, tzinfo=timezone.utc)
-    official = score_candidate("Arsenal v Chelsea | Premier League Highlights", "Premier League", pub, "Arsenal", "Chelsea", d)
-    random = score_candidate("Arsenal v Chelsea highlights", "Some Fan TV", pub, "Arsenal", "Chelsea", d)
-    reaction = score_candidate("Arsenal v Chelsea REACTION", "Premier League", pub, "Arsenal", "Chelsea", d)
-    wrong = score_candidate("Arsenal v Spurs | Highlights", "Premier League", pub, "Arsenal", "Chelsea", d)
-    assert official > random > 0
-    assert reaction == 0 and wrong == 0
+    extended = score_candidate("Arsenal v Chelsea | Extended Highlights", pub, "Arsenal", "Chelsea", d)
+    plain = score_candidate("Arsenal 2-1 Chelsea | Premier League Highlights", pub, "Arsenal", "Chelsea", d)
+    late = score_candidate("Arsenal 2-1 Chelsea | Highlights", datetime(2026, 9, 23, tzinfo=timezone.utc), "Arsenal", "Chelsea", d)
+    assert extended > plain > late > 0
+    assert score_candidate("Arsenal v Chelsea REACTION", pub, "Arsenal", "Chelsea", d) == 0
+    assert score_candidate("Arsenal v Spurs | Highlights", pub, "Arsenal", "Chelsea", d) == 0
+    assert score_candidate("Arteta press conference | Arsenal v Chelsea", pub, "Arsenal", "Chelsea", d) == 0
+    assert score_candidate("Arsenal v Chelsea | Highlights", datetime(2026, 9, 19, tzinfo=timezone.utc), "Arsenal", "Chelsea", d) == 0
 
 
-def test_find_highlights_ranks_results():
-    payload = {
-        "items": [
-            {"id": {"videoId": "fan"}, "snippet": {"title": "Arsenal vs Chelsea highlights", "channelTitle": "Fan TV", "publishedAt": "2026-09-20T20:00:00Z"}},
-            {"id": {"videoId": "pl"}, "snippet": {"title": "Arsenal v Chelsea | Extended Highlights", "channelTitle": "Premier League", "publishedAt": "2026-09-21T08:00:00Z"}},
-            {"id": {"videoId": "x"}, "snippet": {"title": "Arsenal vs Chelsea prediction", "channelTitle": "Tipster", "publishedAt": "2026-09-19T08:00:00Z"}},
-        ]
-    }
-    seen = {}
+def test_highlight_finder_uses_highlights_channel_only():
+    from fake_youtube import FakeYouTube
 
-    def fetch(url):
-        seen["url"] = url
-        return payload
+    yt = FakeYouTube(
+        uploads={
+            "UUsky": [
+                ("pl1", "Arsenal 2-1 Chelsea | Premier League Highlights", "2026-09-20T19:00:00Z"),
+                ("pc", "Arteta press conference ahead of Chelsea", "2026-09-18T12:00:00Z"),
+                ("old", "Arsenal v Chelsea | Highlights", "2025-03-01T12:00:00Z"),
+            ],
+            "UUtifo": [("t1", "Arsenal vs Chelsea highlights", "2026-09-20T20:00:00Z")],
+        }
+    )
+    from dualodds.video.channels import Channel
 
-    cands = find_highlights("Arsenal", "Chelsea", "2026-09-20", api_key="k", fetch=fetch)
-    assert [c.video_id for c in cands] == ["pl", "fan"]
-    assert "Arsenal+vs+Chelsea+highlights" in seen["url"]
+    channels = [
+        Channel("Sky Sports Premier League", "highlights", "UCsky", "Sky Sports Premier League", "UUsky"),
+        Channel("Tifo", "tactical", "UCtifo", "Tifo Football", "UUtifo"),
+    ]
+    finder = HighlightFinder(yt, channels)
+    cands = finder("Arsenal", "Chelsea", "2026-09-20")
+    assert [c.video_id for c in cands] == ["pl1"]
+    units = yt.units_used
+    finder("Liverpool", "Everton", "2026-09-21")  # Önbellekten, yeni API çağrısı yok
+    assert yt.units_used == units
 
 
 def test_watch_highlights_builds_record():
@@ -160,4 +170,4 @@ def test_analyst_gets_video_tool_only_with_store(tmp_path, league):
     ctx_v = AnalysisContext.build(df, video_store=VideoStore(tmp_path))
     names_v = [t.name for t in _build_tools(ctx_v, "Takim00", "Takim01", {})]
     assert "get_video_scouting" in names_v and names_v[-1] == "submit_report"
-    assert tools.video_scouting(ctx_v, "Takim00")["matches_analyzed"] == 0
+    assert tools.video_scouting(ctx_v, "Takim00")["highlights"]["matches_analyzed"] == 0
