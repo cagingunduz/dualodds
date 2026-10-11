@@ -329,5 +329,9 @@ src/dualodds/
   video/schema.py                Video gözlem şeması
   video/store.py                 Video analiz deposu
   video/profile.py               Takım bazlı video izci profili
-  cli.py                         demo / fetch / backtest / predict / analyze
+  cli.py                         demo / fetch / backtest / predict / analyze / video
+  config.py                      Ortam değişkeni ayarları
+  pipeline.py                    Veri yenileme, video taraması, haftalık iş
+  api/app.py                     FastAPI + zamanlayıcı (Railway servisi)
+  api/jobs.py                    Arka plan iş yöneticisi
 ```

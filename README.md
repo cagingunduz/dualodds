@@ -62,6 +62,18 @@ dualodds video profile --team Arsenal
 dualodds analyze --csv data/raw/E0_2627.csv --home Arsenal --away Chelsea --video-dir data/lake/video
 ```
 
+## Sunucu (Railway)
+
+API + zamanlayıcı + kalıcı volume tek servis olarak çalışır. Kurulum adımları:
+**[docs/RAILWAY.md](docs/RAILWAY.md)**
+
+Yerelde çalıştırmak için:
+
+```bash
+ADMIN_TOKEN=dev DUALODDS_DATA_DIR=data uvicorn dualodds.api.app:app --reload
+# http://localhost:8000/docs
+```
+
 ## İlkeler
 
 1. **Sayılar modelden, yorum ajandan.** LLM olasılık uydurmaz.

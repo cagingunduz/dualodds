@@ -96,37 +96,14 @@ def cmd_video_watch(args: argparse.Namespace) -> None:
 
 
 def cmd_video_scan(args: argparse.Namespace) -> None:
-    from dualodds.data.schema import played
-    from dualodds.video.finder import find_highlights
+    from dualodds.pipeline import video_scan
 
-    store = VideoStore(args.video_dir)
-    df = played(_load(args.csv))
-    df = df[df["date"] >= pd.Timestamp(args.since)]
-    if args.until:
-        df = df[df["date"] <= pd.Timestamp(args.until)]
-    if args.team:
-        df = df[(df["home"] == args.team) | (df["away"] == args.team)]
-    done = 0
-    for _, m in df.iterrows():
-        date = str(m["date"].date())
-        if store.has(date, m["home"], m["away"]):
-            continue
-        if args.limit and done >= args.limit:
-            break
-        try:
-            candidates = find_highlights(m["home"], m["away"], date)
-            if not candidates:
-                print(f"{date} {m['home']} – {m['away']}: özet bulunamadı")
-                continue
-            best = candidates[0]
-            _watch_and_store(
-                store, best.url, m["home"], m["away"], date, f"{m['home_goals']}-{m['away_goals']}",
-                title=best.title, channel=best.channel, fps=args.fps,
-            )
-            done += 1
-        except Exception as e:  # Bir maçtaki hata taramayı durdurmasın
-            print(f"{date} {m['home']} – {m['away']}: HATA {type(e).__name__}: {e}")
-    print(f"\n{done} yeni maç analiz edildi.")
+    summary = video_scan(
+        _load(args.csv), VideoStore(args.video_dir), since=args.since, until=args.until,
+        team=args.team, limit=args.limit, fps=args.fps,
+    )
+    print(f"\n{len(summary['analyzed'])} yeni maç analiz edildi, {summary['skipped_existing']} maç zaten vardı, "
+          f"{len(summary['not_found'])} özet bulunamadı, {len(summary['errors'])} hata.")
 
 
 def cmd_video_profile(args: argparse.Namespace) -> None:
