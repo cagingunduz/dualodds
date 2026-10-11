@@ -40,10 +40,10 @@ _PREMIER_LEAGUE = [
     Team("Leicester", "Leicester City"),
     Team("Liverpool", "Liverpool"),
     Team("Luton", "Luton Town"),
-    Team("Man City", "Manchester City", ("Man City",)),
-    Team("Man United", "Manchester United", ("Man Utd", "Man United")),
+    Team("Man City", "Manchester City", ("Man City", "Manchester C")),
+    Team("Man United", "Manchester United", ("Man Utd", "Man United", "Manchester Utd")),
     Team("Newcastle", "Newcastle United"),
-    Team("Nott'm Forest", "Nottingham Forest", ("Forest", "Nottm Forest")),
+    Team("Nott'm Forest", "Nottingham Forest", ("Forest", "Nottm Forest", "Nott'm Forest")),
     Team("Sheffield United", "Sheffield United", ("Sheff Utd",)),
     Team("Southampton", "Southampton"),
     Team("Sunderland", "Sunderland"),
@@ -63,6 +63,15 @@ def normalize(text: str) -> str:
 def team(key: str) -> Team:
     """Tanınmayan takım için adı olduğu gibi kullanan bir kayıt döndürür."""
     return TEAMS.get(key, Team(key, key))
+
+
+def key_for(name: str) -> str | None:
+    """Herhangi bir kaynaktaki takım adını anahtara çevirir (tam eşleşme, takma adlar dahil)."""
+    n = normalize(name)
+    for t in TEAMS.values():
+        if any(normalize(x) == n for x in t.all_names()):
+            return t.key
+    return None
 
 
 def mentions(text: str, key: str) -> bool:

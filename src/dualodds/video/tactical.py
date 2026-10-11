@@ -291,9 +291,12 @@ def tactical_scan(
     max_duration_s: int = 45 * 60,
     analyzer=None,
     classifier=None,
+    teams_filter: set[str] | None = None,
     log=print,
 ) -> dict:
     """Taktik kanallarının yeni videolarını tara; Premier League taktik analizlerini izlet.
+
+    `teams_filter` verilirse yalnızca bu takımları (ya da lig genelini) ele alan videolar izlenir.
 
     `limit` başarılı + hatalı tüm Gemini video denemelerini sayar (maliyet sınırı).
     `classifier` verilmezse anahtar kelime filtresi kullanılır.
@@ -327,8 +330,13 @@ def tactical_scan(
         if relevance is not None:
             r = relevance.get(up.video_id)
             ok = bool(r and r.tactical and r.premier_league)
+            teams = set(r.teams) if r else set()
         else:
             ok = keyword_relevant(up)
+            teams = set(mentioned_teams(f"{up.title}\n{up.description}"))
+        # Takım belirtilmemiş lig geneli videolar ("Her PL takımının zaafı") her zaman ilgili sayılır
+        if ok and teams_filter and teams and not (teams & teams_filter):
+            ok = False
         if ok:
             todo.append((ch, up))
         else:

@@ -33,6 +33,23 @@ dualodds analyze --csv data/raw/T1_2425.csv --home Galatasaray --away Fenerbahce
   --odds 2.10 3.50 3.30 --notes "Deplasman takımında iki stoper sakat"
 ```
 
+## Haftalık analiz (ana akış)
+
+Ücretli veri sağlayıcısı yok. Önümüzdeki maçlar ve oranlar The Odds API'den gelir.
+Gemini, iki takımın bu sezonki videolarını izler: Sky Sports PL maç özetleri ile
+Tifo, Football Made Simple, Football Meta, The Coaches' Voice ve Adam Clery'nin
+taktik videoları. Her maç için analizi Gemini yazar. Oranlar süzgeç görevi görür:
+yalnızca piyasadan ayrışan ve en az 2 farklı videoya dayanan görüşler sinyal
+olarak kalır.
+
+```bash
+export GEMINI_API_KEY=... YOUTUBE_API_KEY=... ODDS_API_KEY=...
+dualodds week --days 7 --max-videos 40
+# Raporlar: data/reports/week_<tarih>/INDEX.md ve maç başına .md/.json
+```
+
+Her video bir kez izlenir ve sonucu saklanır. Sonraki haftalarda yalnızca yeni videolar izlenir.
+
 ## Video ajanı (Premier League maç özetleri)
 
 Gemini, herkese açık YouTube özetlerini indirmeden izler. Her gol ve

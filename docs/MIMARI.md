@@ -5,6 +5,23 @@
 > olasılığa çeviren, ajanlar aracılığıyla analiz üreten ve bunu aylık
 > abonelikle satan bir platform.
 
+## 0. Güncel yön (Ekim 2026 kararı)
+
+- **Ücretli veri sağlayıcısı kullanılmıyor** (Sportmonks vb. yok).
+- **Fikstür ve oranlar:** The Odds API.
+- **Sezon sonuçları ve maç özetleri:** Sky Sports Premier League. Başlıklar maçı ve skoru içerir.
+- **Taktik:** 5 taktik YouTube kanalı.
+- **Analizi Gemini yazar.** Her maç için iki takımın bu sezonki video bulgularını okur.
+- **Oranlar süzgeç görevi görür.** Gemini olasılık uydurmaz. Video kanıtının piyasa
+  olasılığından yükseğe mi, düşüğe mi işaret ettiğini, gücüyle ve kanıtıyla birlikte söyler.
+- **Sinyal kuralı:** En az orta güçte olan ve en az 2 farklı gerçek videoya dayanan
+  görüşler sinyal olur; gerisi "piyasayla uyumlu" sayılır.
+- **Kod:** `dualodds/weekly.py`, `dualodds/brief.py`, `video/highlight_index.py`,
+  `data/sources/odds_api.py`.
+
+Aşağıdaki bölümler genel mimari vizyonudur. Ücretli kaynaklara dair kısımlar
+şimdilik uygulanmıyor.
+
 ## 1. Aladdin benzetmesini doğru okumak
 
 BlackRock Aladdin'i güçlü kılan şey "tahmin" değil, üç şeydir:

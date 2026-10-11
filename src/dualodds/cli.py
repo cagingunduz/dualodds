@@ -162,6 +162,18 @@ def cmd_video_profile(args: argparse.Namespace) -> None:
     print(json.dumps(team_profile(args.team, store.for_team(args.team, last_n=args.last_n)), indent=2, ensure_ascii=False))
 
 
+def cmd_week(args: argparse.Namespace) -> None:
+    from dualodds.config import Settings
+    from dualodds.weekly import run_week
+
+    settings = Settings.from_env()
+    summary = run_week(settings, days=args.days, max_videos=args.max_videos)
+    print(f"\nRaporlar: {summary['reports_dir']}")
+    print(f"İzlenen özet: {len(summary['highlights_watched'])}, taktik video: {len(summary['tactical_analyzed'])}, "
+          f"hata: {len(summary['errors'])}, YouTube birimi: {summary['youtube_units_used']}, Odds API: {summary['odds_quota']}")
+    print(Path(summary["reports_dir"], "INDEX.md").read_text(encoding="utf-8"))
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="dualodds")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -193,6 +205,11 @@ def main(argv: list[str] | None = None) -> None:
             s.add_argument("--notes", help="Sakatlık, rotasyon vb. nitel notlar")
             s.add_argument("--video-dir", help=f"Video analiz deposu (ör. {DEFAULT_DIR}); verilirse ajan video izci profilini kullanır")
         s.set_defaults(fn=fn)
+
+    w = sub.add_parser("week", help="Önümüzdeki maçlar için video tabanlı Gemini analizi + oran süzgeci")
+    w.add_argument("--days", type=int, default=7)
+    w.add_argument("--max-videos", type=int, default=40, help="Bu çalıştırmada Gemini'ye izletilecek en fazla video")
+    w.set_defaults(fn=cmd_week)
 
     v = sub.add_parser("video", help="Maç özeti videolarını izleyen ajan (Gemini)")
     vsub = v.add_subparsers(dest="video_cmd", required=True)
