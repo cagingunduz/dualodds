@@ -46,6 +46,7 @@ def cmd_demo(_: argparse.Namespace) -> None:
 
 def cmd_fetch(args: argparse.Namespace) -> None:
     df = FootballDataUK().fetch(league=args.league, season=args.season)
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(args.out, index=False)
     print(f"{len(df)} maç kaydedildi: {args.out}")
 
