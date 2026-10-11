@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 
 from dualodds.data import entities
 from dualodds.video.channels import Channel
-from dualodds.video.watcher import DEFAULT_MODEL, gemini_video_json, with_retries
+from dualodds.video.watcher import DEFAULT_MODEL, DailyQuotaExceeded, gemini_video_json, with_retries
 from dualodds.video.youtube import Upload, YouTube
 
 StyleTag = Literal[
@@ -322,6 +322,8 @@ def tactical_scan(
     if classifier is not None and fresh:
         try:
             relevance = classifier([up for _, up in fresh])
+        except DailyQuotaExceeded:
+            raise
         except Exception as e:  # Sınıflandırıcı çökerse anahtar kelime filtresine düş
             log(f"Sınıflandırma HATA {type(e).__name__}: {e}; anahtar kelime filtresi kullanılıyor")
 
@@ -357,6 +359,10 @@ def tactical_scan(
             teams = [t.team for t in record.analysis.teams]
             summary["analyzed"].append({"channel": ch.title, "title": up.title, "url": up.url, "teams": teams})
             log(f"{ch.title}: '{up.title}' → {', '.join(teams) or 'PL takımı analizi yok'}")
+        except DailyQuotaExceeded as e:
+            log(f"DURDU: {e}")
+            summary["quota_exhausted"] = str(e)
+            break
         except Exception as e:
             log(f"{ch.title}: '{up.title}' HATA {type(e).__name__}: {e}")
             summary["errors"].append({"video": up.url, "error": f"{type(e).__name__}: {e}"})

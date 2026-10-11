@@ -199,3 +199,37 @@ def test_run_week_budget_spreads_across_teams(tmp_path):
              watcher=watcher, tactical_analyzer=lambda up, ch: None, briefer=lambda *a: _brief([]), log=lambda _: None)
     # Bütçenin %70'i (2 video): Arsenal'in en yeni maçı ve Chelsea'nin tek maçı; Arsenal'in tüm maçları değil
     assert len(watched) == 2 and any(t.startswith("Chelsea") for t in watched)
+
+
+def test_daily_quota_stops_run_without_retrying(tmp_path):
+    from dualodds.video.watcher import DailyQuotaExceeded, with_retries
+
+    class Quota(Exception):
+        code = 429
+
+        def __str__(self):
+            return "429 RESOURCE_EXHAUSTED GenerateRequestsPerDayPerProjectPerModel-FreeTier"
+
+    slept = []
+    with pytest.raises(DailyQuotaExceeded):
+        with_retries(lambda: (_ for _ in ()).throw(Quota()), delays=(1, 2), sleep=slept.append)
+    assert slept == []  # Günlük kota için bekleme/tekrar yok
+
+    now = datetime(2026, 10, 15, 12, tzinfo=timezone.utc)
+    odds_payload = [_event_json("Arsenal", "Chelsea", "2026-10-18T14:00:00Z", {"pinnacle": (2.0, 3.5, 4.0, 1.9, 1.95)})]
+    yt = FakeYouTube(
+        channels={"@SkySportsPremierLeague": ("UCsky", "Sky Sports Premier League", "UUsky")},
+        uploads={"UUsky": [(f"a{i}", f"Arsenal {i}-0 Fulham | Premier League Highlights", f"2026-09-{10 + i:02d}T19:00:00Z") for i in range(3)]},
+    )
+    calls = []
+
+    def watcher(*a, **k):
+        calls.append(1)
+        raise DailyQuotaExceeded("kota")
+
+    briefs = []
+    s = run_week(Settings(data_dir=tmp_path), now=now, yt=yt, odds_fetch=lambda url: (odds_payload, {}), watcher=watcher,
+                 tactical_analyzer=lambda up, ch: None, briefer=lambda *a: briefs.append(1), log=lambda _: None)
+    assert calls == [1] and briefs == [] and s["gemini_quota_exhausted"]
+    md = (tmp_path / "reports" / "week_2026-10-15" / "2026-10-18_arsenal_chelsea.md").read_text()
+    assert "Piyasa (marjı temizlenmiş)" in md

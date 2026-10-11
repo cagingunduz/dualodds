@@ -42,8 +42,20 @@ class VideoAnalysisError(RuntimeError):
 RETRY_DELAYS = (10, 30, 90)  # saniye; Gemini "high demand" (503) genelde kısa sürer
 
 
+class DailyQuotaExceeded(RuntimeError):
+    """Gemini günlük kotası doldu; aynı gün tekrar denemek boşuna."""
+
+
+def is_daily_quota(exc: Exception) -> bool:
+    code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+    text = str(exc)
+    return code == 429 and ("PerDay" in text or "per day" in text.lower())
+
+
 def is_transient(exc: Exception) -> bool:
-    """Tekrar denenmeye değer geçici hata mı (aşırı yük, kota, bağlantı kopması)?"""
+    """Tekrar denenmeye değer geçici hata mı (aşırı yük, dakikalık kota, bağlantı kopması)?"""
+    if is_daily_quota(exc):
+        return False
     code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
     if code in (429, 500, 502, 503, 504):
         return True
@@ -56,6 +68,8 @@ def with_retries(fn, delays=RETRY_DELAYS, sleep=time.sleep, log=None):
         try:
             return fn()
         except Exception as e:
+            if is_daily_quota(e):
+                raise DailyQuotaExceeded(f"Gemini günlük kotası doldu: {str(e)[:300]}") from e
             if delay is None or not is_transient(e):
                 raise
             if log:

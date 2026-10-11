@@ -25,6 +25,7 @@ from dualodds.video.highlight_index import season_highlights, team_results
 from dualodds.video.profile import team_profile
 from dualodds.video.store import VideoStore
 from dualodds.video.tactical import TacticalStore, classify_uploads, tactical_matchup, tactical_scan
+from dualodds.video.watcher import DailyQuotaExceeded
 
 
 def season_start(d: date) -> datetime:
@@ -132,6 +133,7 @@ def run_week(
             if not vstore.has(r.date, r.home, r.away)]
     watched, errors = [], []
     used = 0
+    quota_hit = None
     for r in todo:
         if used >= highlight_budget:
             log(f"Özet bütçesi doldu; {len(todo) - used} özet sonraki çalıştırmaya kaldı")
@@ -142,6 +144,10 @@ def run_week(
             vstore.save(rec)
             watched.append(f"{r.date} {r.home} {r.score} {r.away}")
             log(f"İzlendi: {r.title}")
+        except DailyQuotaExceeded as e:
+            quota_hit = str(e)
+            log(f"DURDU: {quota_hit}")
+            break
         except Exception as e:
             errors.append({"video": r.url, "error": f"{type(e).__name__}: {e}"})
             log(f"HATA {r.title}: {type(e).__name__}: {e}")
@@ -149,12 +155,13 @@ def run_week(
     # 4) Taktik videolar (yalnızca bu haftanın takımları + lig geneli), kalan bütçeyle
     budget = max_videos - used
     tactical = {"analyzed": []}
-    if budget > 0:
+    if budget > 0 and not quota_hit:
         tactical = tactical_scan(
             yt, channels, tstore, since, limit=budget, analyzer=tactical_analyzer,
             classifier=classifier, teams_filter=teams, log=log,
         )
         errors += tactical.get("errors", [])
+        quota_hit = quota_hit or tactical.get("quota_exhausted")
 
     # 5) Maç başına Gemini analizi + oran süzgeci
     out_dir = out_dir or settings.data_dir / "reports" / f"week_{now.date().isoformat()}"
@@ -184,13 +191,20 @@ def run_week(
             "brief": None,
             "signals": [],
         }
-        try:
-            b = briefer(f.home, f.away, f.commence_time, context)
-            report["brief"] = b.model_dump()
-            report["signals"] = brief_mod.filter_signals(b, market, allowed)
-        except Exception as e:
-            report["error"] = f"{type(e).__name__}: {e}"
-            log(f"Analiz HATA {f.home}-{f.away}: {report['error']}")
+        if quota_hit:
+            report["error"] = "Gemini günlük kotası doldu; analiz yazılamadı (yalnızca piyasa olasılıkları)."
+        else:
+            try:
+                b = briefer(f.home, f.away, f.commence_time, context)
+                report["brief"] = b.model_dump()
+                report["signals"] = brief_mod.filter_signals(b, market, allowed)
+            except DailyQuotaExceeded as e:
+                quota_hit = str(e)
+                report["error"] = "Gemini günlük kotası doldu; analiz yazılamadı (yalnızca piyasa olasılıkları)."
+                log(f"DURDU: {quota_hit}")
+            except Exception as e:
+                report["error"] = f"{type(e).__name__}: {e}"
+                log(f"Analiz HATA {f.home}-{f.away}: {report['error']}")
         stem = f"{f.commence_time.date()}_{_slug(f.home)}_{_slug(f.away)}"
         (out_dir / f"{stem}.json").write_text(json.dumps({**report, "context": context}, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
         (out_dir / f"{stem}.md").write_text(brief_mod.render_markdown(report), encoding="utf-8")
@@ -213,4 +227,5 @@ def run_week(
         "signals": {f"{r['home']}-{r['away']}": r["signals"] for r in reports},
         "youtube_units_used": getattr(yt, "units_used", None),
         "odds_quota": quota,
+        "gemini_quota_exhausted": quota_hit,
     }
