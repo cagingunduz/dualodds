@@ -12,6 +12,7 @@ Ortam değişkenleri:
 from __future__ import annotations
 
 import os
+import time
 from datetime import datetime, timezone
 
 from dualodds.data import entities
@@ -38,8 +39,37 @@ class VideoAnalysisError(RuntimeError):
     pass
 
 
-def gemini_video_json(video_url: str, prompt: str, schema, fps: float | None = None, model: str | None = None, client=None):
-    """Gemini'ye herkese açık bir YouTube videosunu izletir, `schema` (pydantic) tipinde döndürür."""
+RETRY_DELAYS = (10, 30, 90)  # saniye; Gemini "high demand" (503) genelde kısa sürer
+
+
+def is_transient(exc: Exception) -> bool:
+    """Tekrar denenmeye değer geçici hata mı (aşırı yük, kota, bağlantı kopması)?"""
+    code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+    if code in (429, 500, 502, 503, 504):
+        return True
+    name = type(exc).__name__
+    return name in ("RemoteProtocolError", "ReadTimeout", "ConnectError", "ConnectTimeout", "ReadError")
+
+
+def with_retries(fn, delays=RETRY_DELAYS, sleep=time.sleep, log=None):
+    for attempt, delay in enumerate((*delays, None)):
+        try:
+            return fn()
+        except Exception as e:
+            if delay is None or not is_transient(e):
+                raise
+            if log:
+                log(f"Geçici hata ({type(e).__name__}), {delay} sn sonra tekrar ({attempt + 1}/{len(delays)})")
+            sleep(delay)
+
+
+def gemini_video_json(
+    video_url: str, prompt: str, schema, fps: float | None = None, model: str | None = None, client=None, sleep=time.sleep
+):
+    """Gemini'ye herkese açık bir YouTube videosunu izletir, `schema` (pydantic) tipinde döndürür.
+
+    Geçici hatalarda (503 aşırı yük vb.) artan beklemelerle tekrar dener.
+    """
     from google import genai
     from google.genai import types
 
@@ -50,14 +80,17 @@ def gemini_video_json(video_url: str, prompt: str, schema, fps: float | None = N
         # Hızlı aksiyonlar için örnekleme hızı artırılabilir (token maliyeti orantılı artar)
         video_metadata=types.VideoMetadata(fps=fps) if fps else None,
     )
-    response = client.models.generate_content(
-        model=model,
-        contents=types.Content(role="user", parts=[video_part, types.Part(text=prompt)]),
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=schema,
-            media_resolution=types.MediaResolution.MEDIA_RESOLUTION_LOW,
+    response = with_retries(
+        lambda: client.models.generate_content(
+            model=model,
+            contents=types.Content(role="user", parts=[video_part, types.Part(text=prompt)]),
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=schema,
+                media_resolution=types.MediaResolution.MEDIA_RESOLUTION_LOW,
+            ),
         ),
+        sleep=sleep,
     )
     parsed = response.parsed
     if isinstance(parsed, schema):

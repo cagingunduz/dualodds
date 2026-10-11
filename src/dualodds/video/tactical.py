@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 
 from dualodds.data import entities
 from dualodds.video.channels import Channel
-from dualodds.video.watcher import DEFAULT_MODEL, gemini_video_json
+from dualodds.video.watcher import DEFAULT_MODEL, gemini_video_json, with_retries
 from dualodds.video.youtube import Upload, YouTube
 
 StyleTag = Literal[
@@ -114,6 +114,60 @@ Kurallar:
 
 def mentioned_teams(text: str) -> list[str]:
     return [key for key in entities.TEAMS if entities.mentions(text, key)]
+
+
+def keyword_relevant(up: Upload) -> bool:
+    """Yedek filtre: başlık/açıklamada PL takımı veya 'Premier League' geçiyor mu?"""
+    text = f"{up.title}\n{up.description}"
+    return bool(mentioned_teams(text)) or "premier league" in entities.normalize(text)
+
+
+class VideoRelevance(BaseModel):
+    video_id: str
+    tactical: bool = Field(description="Takım/teknik direktör taktiği veya oyun tarzı üzerine esaslı analiz mi?")
+    premier_league: bool = Field(description="Premier League takımlarını ele alıyor mu?")
+    teams: list[str] = Field(description="Ele alınan PL takım anahtarları (teknik direktör adından da çıkar)")
+
+
+class RelevanceBatch(BaseModel):
+    items: list[VideoRelevance]
+
+
+CLASSIFY_PROMPT = """Aşağıdaki YouTube videolarını yalnızca başlık ve açıklamalarına bakarak sınıflandır.
+
+tactical=true yalnızca video bir takımın, teknik direktörün veya maçın TAKTİK/oyun tarzı analiziyse.
+tactical=false: bilgi yarışmaları, oyuncu hikâyeleri, transfer, hukuk/ceza davaları, finans, canlı yayın sohbetleri, sponsorlu içerik, genel futbol kültürü.
+premier_league=true: video Premier League takımlarını ele alıyorsa (teknik direktör adıyla anılsa bile, ör. "Arteta's" → Arsenal).
+teams: ele alınan takımlar, yalnızca şu anahtarlardan: {teams}
+
+Videolar (JSON):
+{videos}"""
+
+
+def classify_uploads(uploads: list[Upload], client=None, model: str | None = None, batch_size: int = 40) -> dict[str, VideoRelevance]:
+    """Video izletmeden önce ucuz bir metin çağrısıyla alakasızları eler (video başına birkaç yüz token)."""
+    import json
+
+    from google import genai
+    from google.genai import types
+
+    model = model or os.environ.get("DUALODDS_GEMINI_MODEL", DEFAULT_MODEL)
+    client = client or genai.Client()
+    out: dict[str, VideoRelevance] = {}
+    for i in range(0, len(uploads), batch_size):
+        chunk = uploads[i : i + batch_size]
+        videos = [{"video_id": u.video_id, "title": u.title, "description": u.description[:400]} for u in chunk]
+        prompt = CLASSIFY_PROMPT.format(teams=", ".join(entities.TEAMS), videos=json.dumps(videos, ensure_ascii=False))
+        resp = with_retries(
+            lambda: client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=RelevanceBatch),
+            )
+        )
+        batch = resp.parsed if isinstance(resp.parsed, RelevanceBatch) else RelevanceBatch.model_validate_json(resp.text)
+        out.update({item.video_id: item for item in batch.items})
+    return out
 
 
 def analyze_tactical_video(upload: Upload, channel: str, fps: float | None = None, model: str | None = None, client=None) -> StoredTacticalAnalysis:
@@ -236,12 +290,17 @@ def tactical_scan(
     min_duration_s: int = 120,
     max_duration_s: int = 45 * 60,
     analyzer=None,
+    classifier=None,
     log=print,
 ) -> dict:
-    """Taktik kanallarının yeni videolarını tara; Premier League takımı geçenleri analiz et."""
+    """Taktik kanallarının yeni videolarını tara; Premier League taktik analizlerini izlet.
+
+    `limit` başarılı + hatalı tüm Gemini video denemelerini sayar (maliyet sınırı).
+    `classifier` verilmezse anahtar kelime filtresi kullanılır.
+    """
     analyzer = analyzer or analyze_tactical_video
     tactical = [c for c in channels if c.kind == "tactical"]
-    summary: dict = {"analyzed": [], "skipped_existing": 0, "skipped_no_pl_team": [], "skipped_duration": [], "errors": []}
+    summary: dict = {"analyzed": [], "skipped_existing": 0, "skipped_not_relevant": [], "skipped_duration": [], "errors": []}
 
     candidates: list[tuple[Channel, Upload]] = []
     for ch in tactical:
@@ -249,18 +308,35 @@ def tactical_scan(
         log(f"{ch.title}: {since.date()} sonrası {len(ups)} video")
         candidates += [(ch, up) for up in ups]
 
-    todo = []
+    fresh = []
     for ch, up in candidates:
         if store.has(up.video_id):
             summary["skipped_existing"] += 1
-        elif not mentioned_teams(f"{up.title}\n{up.description}"):
-            summary["skipped_no_pl_team"].append(f"{ch.title}: {up.title}")
         else:
+            fresh.append((ch, up))
+
+    relevance = None
+    if classifier is not None and fresh:
+        try:
+            relevance = classifier([up for _, up in fresh])
+        except Exception as e:  # Sınıflandırıcı çökerse anahtar kelime filtresine düş
+            log(f"Sınıflandırma HATA {type(e).__name__}: {e}; anahtar kelime filtresi kullanılıyor")
+
+    todo = []
+    for ch, up in fresh:
+        if relevance is not None:
+            r = relevance.get(up.video_id)
+            ok = bool(r and r.tactical and r.premier_league)
+        else:
+            ok = keyword_relevant(up)
+        if ok:
             todo.append((ch, up))
+        else:
+            summary["skipped_not_relevant"].append(f"{ch.title}: {up.title}")
 
     durations = yt.durations([up.video_id for _, up in todo]) if todo else {}
     for ch, up in sorted(todo, key=lambda x: x[1].published_at):
-        if limit and len(summary["analyzed"]) >= limit:
+        if limit and len(summary["analyzed"]) + len(summary["errors"]) >= limit:
             log(f"Limit ({limit}) doldu, tarama durduruldu")
             break
         dur = durations.get(up.video_id)

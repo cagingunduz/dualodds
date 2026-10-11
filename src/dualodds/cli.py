@@ -131,12 +131,12 @@ def cmd_video_tactical_scan(args: argparse.Namespace) -> None:
     s = tactical_job(settings, since=args.since, limit=args.limit)
     print(
         f"\n{len(s['analyzed'])} video analiz edildi, {s['skipped_existing']} zaten vardı, "
-        f"{len(s['skipped_no_pl_team'])} PL takımı geçmediği için, {len(s['skipped_duration'])} süre nedeniyle atlandı, "
+        f"{len(s['skipped_not_relevant'])} taktik/PL içeriği olmadığı için, {len(s['skipped_duration'])} süre nedeniyle atlandı, "
         f"{len(s['errors'])} hata. YouTube kotası: {s['youtube_units_used']} birim"
     )
-    if s["skipped_no_pl_team"]:
-        print("\nPL takımı geçmediği için atlananlar (teknik direktör adıyla anılan takımlar burada olabilir):")
-        for t in s["skipped_no_pl_team"]:
+    if s["skipped_not_relevant"]:
+        print("\nİlgisiz bulunup atlananlar:")
+        for t in s["skipped_not_relevant"]:
             print(f"  - {t}")
 
 

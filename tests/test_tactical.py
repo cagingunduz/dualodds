@@ -123,7 +123,7 @@ def test_tactical_scan_filters_and_stores(tmp_path):
     since = datetime(2026, 9, 1, tzinfo=timezone.utc)
     s = tactical_scan(yt, channels, store, since, analyzer=analyzer, log=lambda _: None)
     assert [a["title"] for a in s["analyzed"]] == ["How Arsenal build up under pressure"]
-    assert len(s["skipped_no_pl_team"]) == 1 and len(s["skipped_duration"]) == 1
+    assert len(s["skipped_not_relevant"]) == 1 and len(s["skipped_duration"]) == 1
     assert store.has("a1")
     # Tekrar taramada analiz edilmiş video atlanır
     s2 = tactical_scan(yt, channels, store, since, analyzer=analyzer, log=lambda _: None)
@@ -145,3 +145,100 @@ def test_tactical_matchup_edges():
     assert m["home_edges"] == [{"team": "Liverpool", "style": "high_press", "label": "önde yoğun pres", "sources": 1}]
     assert m["away_edges"][0]["style"] == "direct_long_ball"
     assert m["away_profile"]["vulnerable_to"]["high_press"] == 2
+
+
+def _uploads(*items):
+    return [_upload(vid, title, when) for vid, title, when in items]
+
+
+def test_keyword_relevant_accepts_league_wide_videos():
+    from dualodds.video.tactical import keyword_relevant
+
+    assert keyword_relevant(_upload("x", "Every Premier League Team's BIGGEST Weakness Right Now"))
+    assert keyword_relevant(_upload("y", "Why Brighton are scary"))
+    assert not keyword_relevant(_upload("z", "Flick's Barcelona Tactics Are Crazy"))
+
+
+def test_tactical_scan_uses_classifier_and_limit_counts_errors(tmp_path):
+    from dualodds.video.channels import Channel
+    from dualodds.video.tactical import VideoRelevance
+
+    yt = FakeYouTube(
+        uploads={
+            "UUtifo": [
+                ("arteta", "How Arteta's side builds up", "2026-09-20T10:00:00Z"),
+                ("charges", "What have Manchester City been found guilty of?", "2026-09-19T10:00:00Z"),
+                ("a2", "Liverpool's pressing explained", "2026-09-18T10:00:00Z"),
+                ("a3", "Chelsea under Alonso", "2026-09-17T10:00:00Z"),
+            ]
+        }
+    )
+    channels = [Channel("Tifo", "tactical", "UCtifo", "Tifo Football", "UUtifo")]
+
+    def classifier(ups):
+        verdict = {"arteta": True, "charges": False, "a2": True, "a3": True}
+        return {u.video_id: VideoRelevance(video_id=u.video_id, tactical=verdict[u.video_id], premier_league=True, teams=[]) for u in ups}
+
+    calls = []
+
+    def failing(up, channel):
+        calls.append(up.video_id)
+        raise RuntimeError("503 UNAVAILABLE")
+
+    s = tactical_scan(yt, channels, TacticalStore(tmp_path), datetime(2026, 9, 1, tzinfo=timezone.utc),
+                      limit=2, analyzer=failing, classifier=classifier, log=lambda _: None)
+    # Takım adı geçmeyen ama taktik olan video seçildi; ilgisiz olan elendi; hatalar da limite sayıldı
+    assert calls == ["a3", "a2"]
+    assert s["skipped_not_relevant"] == ["Tifo Football: What have Manchester City been found guilty of?"]
+    assert len(s["errors"]) == 2
+
+
+def test_classifier_failure_falls_back_to_keywords(tmp_path):
+    from dualodds.video.channels import Channel
+
+    yt = FakeYouTube(uploads={"UUtifo": [("a1", "Arsenal tactics", "2026-09-20T10:00:00Z"), ("b1", "Barcelona tactics", "2026-09-19T10:00:00Z")]})
+    channels = [Channel("Tifo", "tactical", "UCtifo", "Tifo Football", "UUtifo")]
+
+    def broken(ups):
+        raise RuntimeError("down")
+
+    seen = []
+    s = tactical_scan(yt, channels, TacticalStore(tmp_path), datetime(2026, 9, 1, tzinfo=timezone.utc),
+                      analyzer=lambda up, ch: seen.append(up.video_id) or (_ for _ in ()).throw(RuntimeError("x")),
+                      classifier=broken, log=lambda _: None)
+    assert seen == ["a1"]
+
+
+def test_with_retries_only_retries_transient_errors():
+    from dualodds.video.watcher import with_retries
+
+    class Overloaded(Exception):
+        code = 503
+
+    attempts = []
+
+    def flaky():
+        attempts.append(1)
+        if len(attempts) < 3:
+            raise Overloaded()
+        return "ok"
+
+    slept = []
+    assert with_retries(flaky, delays=(1, 2, 3), sleep=slept.append) == "ok"
+    assert slept == [1, 2]
+
+    def bad_request():
+        raise ValueError("schema")
+
+    with pytest.raises(ValueError):
+        with_retries(bad_request, delays=(1,), sleep=slept.append)
+
+    always = []
+
+    def always_503():
+        always.append(1)
+        raise Overloaded()
+
+    with pytest.raises(Overloaded):
+        with_retries(always_503, delays=(1, 1), sleep=lambda _: None)
+    assert len(always) == 3

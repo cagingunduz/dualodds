@@ -99,7 +99,7 @@ def video_scan(
         if store.has(d, m["home"], m["away"]):
             summary["skipped_existing"] += 1
             continue
-        if limit and len(summary["analyzed"]) + len(summary["mismatched"]) >= limit:
+        if limit and len(summary["analyzed"]) + len(summary["mismatched"]) + len(summary["errors"]) >= limit:
             log(f"Limit ({limit}) doldu, tarama durduruldu")
             break
         try:
@@ -155,7 +155,7 @@ def tactical_job(
     log: Log = print,
 ) -> dict:
     """Taktik kanallarının `since` sonrası videolarını analiz eder."""
-    from dualodds.video.tactical import TacticalStore, tactical_scan
+    from dualodds.video.tactical import TacticalStore, classify_uploads, tactical_scan
 
     if analyzer is None:
         _require_gemini()
@@ -166,7 +166,9 @@ def tactical_job(
     since_dt = datetime.combine(pd.Timestamp(since).date(), time.min, tzinfo=timezone.utc)
     return tactical_scan(
         yt, channels, TacticalStore(settings.tactical_dir), since_dt,
-        limit=settings.tactical_limit if limit is None else limit, analyzer=analyzer, log=log,
+        limit=settings.tactical_limit if limit is None else limit, analyzer=analyzer,
+        # Gerçek çalıştırmada başlıklar Gemini ile sınıflandırılır; testlerde anahtar kelime filtresi
+        classifier=classify_uploads if analyzer is None else None, log=log,
     )
 
 
