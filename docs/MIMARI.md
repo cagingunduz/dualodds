@@ -106,22 +106,60 @@ yeniden üretilecek tek doğru ölçüttür.
 | Takvim/seyahat | Fikstür + stadyum koordinatları | Yorgunluk, Avrupa kupası etkisi | Kendimiz hesaplarız |
 | Video / maç özetleri | Lisanslı platformlar (ör. Wyscout/Hudl video) | Taktik kurgu analizi | **Telif! Aşağıya bakın** |
 
-### Maç özetlerinden taktik analizi hakkında
+### Maç özetlerinden taktik analizi: video ajanı (uygulandı)
 
-Fikir doğru, ama yol önemli:
+Claude API video girdisi kabul etmiyor. YouTube videosundan kare çıkarmak için
+de videoyu indirmek gerekir, bu da YouTube kullanım şartlarına aykırıdır. Bu
+yüzden "göz" olarak **Google Gemini** kullanılır. Gemini herkese açık YouTube
+videolarını **URL ile, indirmeden** işleyebilir. Claude ise analist ve
+orkestratör olarak kalır.
 
-- **YouTube vb. yerden maç görüntüsü indirip işlemek** hem platform kullanım
-  şartlarını hem yayın haklarını (FSEK, yayıncı sözleşmeleri) ihlal eder. Ücretli
-  bir üründe bu ciddi hukuki risktir.
-- **Doğru sıralama:**
-  1. **Event verisi** ile taktik "parmak izi" çıkar (aşağıda). Taktik bilginin
-     büyük kısmı burada zaten var ve görüntü işlemeye göre çok daha ucuz.
-  2. **Yayından üretilmiş tracking verisi** satın al (ör. SkillCorner) — görüntü
-     işlemeyi onlar yapmış, lisanslı.
-  3. Ancak ürün kendini kanıtladıktan sonra, **lisanslı video** üzerinde kendi
-     bilgisayarlı görü (oyuncu tespiti + takip + saha homografisi) hattını kur.
-- **Çok kipli (multimodal) LLM'ler** taktik tahtası görselleri, ısı haritaları,
-  pas ağı diyagramları ve lisanslı kareler üzerinde yorum yapmak için kullanılabilir.
+```
+football-data (maç listesi, skor)
+        │
+        ▼
+video/finder.py   YouTube Data API ile özeti bul; resmî/yayıncı kanalı,
+                  başlıkta iki takım, yayın tarihi ile puanla
+        │
+        ▼
+video/watcher.py  Gemini videoyu izler → MatchVideoAnalysis (yapılandırılmış JSON):
+                  - video doğru maç mı? görülen skor
+                  - her gol/pozisyon: an, dakika, takım, nasıl doğdu (kontra,
+                    orta, cutback, önde baskı, duran top...), koridor,
+                    savunmanın hatası, pozisyon kalitesi
+                  - takım başına pres, oyun kurma, koridorlar, güçlü/zayıf yönler
+        │
+        ▼
+video/store.py    Maç başına bir JSON (aynı maç iki kez ödenmez)
+        │
+        ▼
+video/profile.py  Takımın son N maçında tekrar eden örüntüler
+                  ("son 3 maçta 2 kez sağ bek arkasından kontra yedi")
+        │
+        ▼
+Claude analist    get_video_scouting aracıyla profili okur, model sayılarıyla birleştirir
+```
+
+Önemli sınırlar:
+- **Özetler yanlıdır:** 90 dakikanın 5–10 dakikasını, ağırlıkla gol anlarını
+  gösterir. Pozisyonların nasıl doğduğu ve savunma hataları güvenilir sinyaldir.
+  Pres yüksekliği veya oyun kurma tarzı ise düşük güvenlidir. Profil bu uyarıyı
+  her zaman taşır.
+- **Doğrulama:** Gemini videonun gerçekten o maç olup olmadığını kontrol eder.
+  Uyuşmayan videolar profillere girmez.
+- **Erişim:** Yalnızca herkese açık videolar işlenebilir. Premier League
+  özetleri bazı bölgelerde coğrafi kısıtlı olabilir; bu yüzden NBC Sports ve
+  kulüp kanalları da aday kanallar arasında.
+- **Hukuk:** Video indirilmez, saklanmaz ve yeniden yayınlanmaz. Yalnızca
+  türetilmiş gözlemler (metin/kod) saklanır. Yine de ticari ürün için YouTube
+  ve Gemini API kullanım şartları avukatla gözden geçirilmeli. Gemini'nin
+  YouTube URL özelliği şu an önizleme aşamasında ve koşulları değişebilir.
+- **Ölçüm:** Video sinyalleri (ör. "kontra yeme oranı") özellik olarak modele
+  girip walk-forward backtest'te katkı göstermedikçe yalnızca rapor yorumunda
+  kullanılır.
+- **Uzun vadede:** Event verisi (Opta/StatsBomb) aynı bilgiyi tam maç için
+  verir. Video ajanı, event verisinin göremediği bağlamı (neden, nasıl)
+  tamamlayıcı olarak kalır.
 
 ### Takımın oyun kurgusu: "taktik parmak izi"
 
@@ -243,9 +281,12 @@ istikrarlı gelir sağlayabilir ve hukuki riski daha düşüktür.
 
 ## 11. Yol haritası
 
-**Faz 0 — Temel (bu commit):** Kanonik veri şeması, kaynak arayüzü,
+**Faz 0 — Temel (tamamlandı):** Kanonik veri şeması, kaynak arayüzü,
 football-data.co.uk bağlayıcısı, Dixon-Coles, pazar türetme, oran matematiği
 (Shin, Kelly, CLV), walk-forward backtest, Claude analist ajanı, testler.
+
+**Faz 0.5 — Video ajanı (tamamlandı, Premier League):** Özet bulma, Gemini ile
+izleme, gözlem deposu, takım profili, Claude analistine entegrasyon.
 
 **Faz 1 — MVP (0–3 ay):**
 - 5 büyük lig + Süper Lig; fikstür/kadro API'si; varlık eşleştirme tablosu
@@ -282,5 +323,11 @@ src/dualodds/
   agents/tools.py                Ajan araçları (saf Python)
   agents/analyst.py              Claude analist ajanı
   agents/report.py               Rapor şeması (sayılar koddan, yorum LLM'den)
+  data/entities.py               Takım adı eşleştirme (Premier League)
+  video/finder.py                YouTube'da maç özeti bulma ve puanlama
+  video/watcher.py               Gemini video izleme ajanı
+  video/schema.py                Video gözlem şeması
+  video/store.py                 Video analiz deposu
+  video/profile.py               Takım bazlı video izci profili
   cli.py                         demo / fetch / backtest / predict / analyze
 ```

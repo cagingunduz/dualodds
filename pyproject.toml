@@ -17,7 +17,8 @@ dependencies = [
 
 [project.optional-dependencies]
 agents = ["anthropic>=1.13"]
-dev = ["pytest>=8", "anthropic>=1.13"]
+video = ["google-genai>=2.29"]
+dev = ["pytest>=8", "anthropic>=1.13", "google-genai>=2.29"]
 
 [project.scripts]
 dualodds = "dualodds.cli:main"

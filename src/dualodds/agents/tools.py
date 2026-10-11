@@ -15,6 +15,8 @@ import pandas as pd
 from dualodds.data.schema import played
 from dualodds.evaluation.odds import devig_shin, expected_value, kelly_fraction, overround
 from dualodds.models.dixon_coles import DixonColesModel
+from dualodds.video.profile import team_profile
+from dualodds.video.store import VideoStore
 
 OUTCOME_LABELS = ("1", "X", "2")
 
@@ -23,11 +25,14 @@ OUTCOME_LABELS = ("1", "X", "2")
 class AnalysisContext:
     matches: pd.DataFrame
     model: DixonColesModel
+    video_store: VideoStore | None = None
 
     @classmethod
-    def build(cls, matches: pd.DataFrame, as_of: pd.Timestamp | str | None = None) -> "AnalysisContext":
+    def build(
+        cls, matches: pd.DataFrame, as_of: pd.Timestamp | str | None = None, video_store: VideoStore | None = None
+    ) -> "AnalysisContext":
         hist = matches if as_of is None else matches[matches["date"] < pd.Timestamp(as_of)]
-        return cls(matches=hist, model=DixonColesModel().fit(hist))
+        return cls(matches=hist, model=DixonColesModel().fit(hist), video_store=video_store)
 
     def known_teams(self) -> list[str]:
         return list(self.model.teams)
@@ -112,3 +117,11 @@ def market_comparison(ctx: AnalysisContext, home: str, away: str, odds_home: flo
             }
         )
     return {"bookmaker_margin": round(overround(odds), 4), "outcomes": rows}
+
+
+def video_scouting(ctx: AnalysisContext, team: str, last_n: int = 5) -> dict:
+    """Takımın son maç özetlerinden çıkarılmış birleşik video izci profili."""
+    if ctx.video_store is None:
+        return {"team": team, "matches_analyzed": 0, "note": "Video deposu bağlı değil."}
+    as_of = str(ctx.model.fitted_as_of.date()) if ctx.model.fitted_as_of is not None else None
+    return team_profile(team, ctx.video_store.for_team(team, last_n=last_n, before=as_of))

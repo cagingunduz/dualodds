@@ -33,6 +33,35 @@ dualodds analyze --csv data/raw/T1_2425.csv --home Galatasaray --away Fenerbahce
   --odds 2.10 3.50 3.30 --notes "Deplasman takımında iki stoper sakat"
 ```
 
+## Video ajanı (Premier League maç özetleri)
+
+Gemini, herkese açık YouTube özetlerini indirmeden izler. Her gol ve
+pozisyonun nasıl doğduğunu, hangi koridordan geldiğini ve savunmanın neyi
+yanlış yaptığını yapılandırılmış olarak çıkarır. Claude analisti bu
+gözlemleri takım profili olarak kullanır.
+
+```bash
+pip install -e ".[dev]"
+export GEMINI_API_KEY=...        # https://aistudio.google.com
+export YOUTUBE_API_KEY=...       # Google Cloud → YouTube Data API v3
+export ANTHROPIC_API_KEY=...
+
+dualodds fetch --league E0 --season 2627 --out data/raw/E0_2627.csv
+
+# Özet videosu ara / tek video izlet
+dualodds video find  --home Arsenal --away Chelsea --date 2026-09-20
+dualodds video watch --url "https://www.youtube.com/watch?v=..." --home Arsenal --away Chelsea --date 2026-09-20 --score 2-1
+
+# Bir tarih aralığındaki tüm maçların özetlerini bul + izlet + kaydet
+dualodds video scan --csv data/raw/E0_2627.csv --since 2026-09-01 --limit 10
+
+# Takımın birleşik video profili
+dualodds video profile --team Arsenal
+
+# Video profilini de kullanan analist raporu
+dualodds analyze --csv data/raw/E0_2627.csv --home Arsenal --away Chelsea --video-dir data/lake/video
+```
+
 ## İlkeler
 
 1. **Sayılar modelden, yorum ajandan.** LLM olasılık uydurmaz.
