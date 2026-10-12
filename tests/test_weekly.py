@@ -12,7 +12,29 @@ from dualodds.video.highlight_index import parse_highlight_title, season_highlig
 from dualodds.video.watcher import watch_highlights
 from dualodds.weekly import run_week, season_start
 
+import numpy as np
+import pandas as pd
+
 from fake_youtube import FakeYouTube
+
+
+def _fake_history(n=400, seed=1):
+    """Sahte arşiv: oranlar ve sonuçlar tutarlı."""
+    rng = np.random.default_rng(seed)
+    p_home = rng.uniform(0.3, 0.7, n)
+    p_away = (1 - p_home) * 0.55
+    p_draw = 1 - p_home - p_away
+    u = rng.uniform(size=n)
+    hg = np.where(u < p_home, 2, np.where(u < p_home + p_draw, 1, 0))
+    ag = np.where(u < p_home, 0, np.where(u < p_home + p_draw, 1, 2))
+    return pd.DataFrame({
+        "league": "E0", "season": "2526", "home": "A", "away": "B", "hg": hg, "ag": ag,
+        "o_home": 0.95 / p_home, "o_draw": 0.95 / p_draw, "o_away": 0.95 / p_away,
+        "o_over": rng.uniform(1.6, 2.4, n), "o_under": rng.uniform(1.6, 2.4, n),
+    })
+
+
+HISTORY = _fake_history()
 from test_video import _FakeGemini, _analysis, _event
 
 
@@ -104,7 +126,7 @@ def test_filter_signals_requires_two_real_videos_and_strength():
     ]
     sig = filter_signals(_brief(views), market, allowed)
     assert [s["selection"] for s in sig] == ["over"]
-    assert sig[0]["market_prob"] == pytest.approx(0.5) and sig[0]["direction"] == "yükseğe"
+    assert sig[0]["market_prob"] == pytest.approx(0.5) and sig[0]["direction"] == "lehte"
 
 
 def test_season_start():
@@ -159,7 +181,7 @@ def test_run_week_end_to_end(tmp_path):
     settings = Settings(data_dir=tmp_path)
     summary = run_week(
         settings, days=7, now=now, yt=yt, odds_fetch=lambda url: (odds_payload, {"x-requests-remaining": "498"}),
-        watcher=watcher, tactical_analyzer=tactical_analyzer, briefer=briefer, log=lambda _: None,
+        watcher=watcher, tactical_analyzer=tactical_analyzer, briefer=briefer, history=HISTORY, log=lambda _: None,
     )
     assert summary["fixtures"] == 1
     assert sorted(watched) == [("Arsenal", "Fulham"), ("Wolves", "Chelsea")]  # Yalnızca bu haftanın takımları
@@ -170,13 +192,14 @@ def test_run_week_end_to_end(tmp_path):
     sig = summary["signals"]["Arsenal-Chelsea"]
     assert sig and sig[0]["selection"] == "home"
     md = (tmp_path / "reports" / "week_2026-10-15" / "2026-10-18_arsenal_chelsea.md").read_text()
-    assert "Süzgeç sonrası sonuç" in md and "1 (ev sahibi)" in md
+    assert "Video sinyalleri" in md and "Tarihsel benzer oranlar" in md and "En uygun seçenek" in md
+    assert "%" not in md.split("## Oranlar")[1].split("## Tarihsel")[0]  # Oran bölümünde yüzde yok
     data = json.loads((tmp_path / "reports" / "week_2026-10-15" / "2026-10-18_arsenal_chelsea.json").read_text())
     assert data["brief"]["headline"] == "h"
     # İkinci çalıştırmada aynı videolar tekrar izlenmez
     watched.clear()
     run_week(settings, days=7, now=now, yt=yt, odds_fetch=lambda url: (odds_payload, {}), watcher=watcher,
-             tactical_analyzer=tactical_analyzer, briefer=briefer, log=lambda _: None)
+             tactical_analyzer=tactical_analyzer, briefer=briefer, history=HISTORY, log=lambda _: None)
     assert watched == []
 
 
@@ -196,7 +219,7 @@ def test_run_week_budget_spreads_across_teams(tmp_path):
         return watch_highlights(url, home, away, d, score=score, client=_FakeGemini(_analysis([_event("home")])), model="m")
 
     run_week(Settings(data_dir=tmp_path), now=now, max_videos=3, yt=yt, odds_fetch=lambda url: (odds_payload, {}),
-             watcher=watcher, tactical_analyzer=lambda up, ch: None, briefer=lambda *a: _brief([]), log=lambda _: None)
+             watcher=watcher, tactical_analyzer=lambda up, ch: None, briefer=lambda *a: _brief([]), history=HISTORY, log=lambda _: None)
     # Bütçenin %70'i (2 video): Arsenal'in en yeni maçı ve Chelsea'nin tek maçı; Arsenal'in tüm maçları değil
     assert len(watched) == 2 and any(t.startswith("Chelsea") for t in watched)
 
@@ -229,7 +252,61 @@ def test_daily_quota_stops_run_without_retrying(tmp_path):
 
     briefs = []
     s = run_week(Settings(data_dir=tmp_path), now=now, yt=yt, odds_fetch=lambda url: (odds_payload, {}), watcher=watcher,
-                 tactical_analyzer=lambda up, ch: None, briefer=lambda *a: briefs.append(1), log=lambda _: None)
+                 tactical_analyzer=lambda up, ch: None, briefer=lambda *a: briefs.append(1), history=HISTORY, log=lambda _: None)
     assert calls == [1] and briefs == [] and s["gemini_quota_exhausted"]
     md = (tmp_path / "reports" / "week_2026-10-15" / "2026-10-18_arsenal_chelsea.md").read_text()
-    assert "Piyasa (marjı temizlenmiş)" in md
+    assert "## Oranlar" in md and "Piyasa" not in md
+
+
+
+def test_filter_signals_merges_two_sides_of_over_under():
+    market = market_probabilities((2.0, 3.5, 4.0), (1.9, 1.9))
+    allowed = {"u1", "u2", "u3"}
+    ev = lambda u: Evidence(video_url=u, timestamp=None, note="n")  # noqa: E731
+    views = [
+        MarketView(market="OU25", selection="over", stance="supports_higher", strength="moderate", reasoning="a",
+                   evidence=[ev("u1"), ev("u2")]),
+        MarketView(market="OU25", selection="under", stance="supports_lower", strength="moderate", reasoning="b",
+                   evidence=[ev("u1"), ev("u2"), ev("u3")]),
+    ]
+    sig = filter_signals(_brief(views), market, allowed)
+    assert len(sig) == 1 and sig[0]["selection"] == "over" and len(sig[0]["videos"]) == 3
+
+
+def test_recommend_requires_history_not_against():
+    from dualodds.brief import recommend
+
+    market = market_probabilities((2.0, 3.5, 4.0), (1.9, 1.9))
+    sig = [{"selection": "draw", "label": "X (beraberlik)", "direction": "lehte", "strength": "moderate", "videos": ["a", "b"]}]
+    best = {"draw": (3.7, "williamhill")}
+    hist_for = {"n_h2h": 600, "n_ou": 600, "rates": {"draw": 0.31}, "roi": {"draw": 0.04}}
+    rec = recommend(sig, market, hist_for, best)
+    assert rec["selection"] == "draw" and rec["best_odds"] == 3.7 and rec["confidence"] == "orta"
+    assert any("benzer oranlı 600 maçta" in r for r in rec["reasons"])
+    hist_against = {"n_h2h": 600, "n_ou": 600, "rates": {"draw": 0.20}, "roi": {"draw": -0.1}}
+    assert recommend(sig, market, hist_against, best)["selection"] is None
+    assert recommend([], market, hist_for, best)["label"] == "Pas"
+
+
+def test_similar_odds_and_best_prices():
+    from dualodds.history import similar_odds
+
+    s = similar_odds(HISTORY, (1.9, 3.6, 4.2), (1.9, 1.95), k=100)
+    assert s.n_h2h == 100 and s.n_ou == 100
+    assert abs(sum(s.rates[k] for k in ("home", "draw", "away")) - 1) < 1e-6
+    lo, hi = s.ranges["home"]
+    assert lo <= 1.95 <= hi + 0.3
+    ev = _event_json("Arsenal", "Chelsea", "2026-10-18T14:00:00Z",
+                     {"pinnacle": (2.0, 3.5, 4.0, 1.9, 1.95), "williamhill": (2.1, 3.4, 3.9, 1.85, 2.0)})
+    f = parse_event(ev)
+    assert f.best["home"] == (2.1, "williamhill") and f.best["draw"] == (3.5, "pinnacle") and f.best["under"] == (2.0, "williamhill")
+
+
+def test_parse_history_csv_prefers_pinnacle():
+    from dualodds.history import parse_history_csv
+
+    raw = pd.DataFrame({"HomeTeam": ["A"], "AwayTeam": ["B"], "FTHG": [2], "FTAG": [1],
+                        "PSH": [1.8], "PSD": [3.6], "PSA": [4.5], "B365H": [1.7], "B365D": [3.5], "B365A": [4.6],
+                        "P>2.5": [1.9], "P<2.5": [1.95]})
+    df = parse_history_csv(raw, "E0", "2526")
+    assert df.loc[0, "o_home"] == 1.8 and df.loc[0, "o_over"] == 1.9

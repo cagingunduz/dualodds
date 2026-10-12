@@ -36,6 +36,7 @@ class FixtureOdds:
     source: str = ""  # Hangi bahisçi / "median(n)"
     n_books: int = 0
     raw_names: tuple[str, str] = ("", "")
+    best: dict = field(default_factory=dict)  # {"home": (oran, bahisçi), ..., "over": ..., "under": ...}
     extra: dict = field(default_factory=dict)
 
 
@@ -71,6 +72,12 @@ def parse_event(ev: dict) -> FixtureOdds | None:
                     totals[bm["key"]] = (by["Over"], by["Under"])
     h2h_price, src = _pick(h2h)
     tot_price, _ = _pick(totals)
+    best: dict = {}
+    for prices, names in ((h2h, ("home", "draw", "away")), (totals, ("over", "under"))):
+        for book, tup in prices.items():
+            for name, price in zip(names, tup):
+                if name not in best or price > best[name][0]:
+                    best[name] = (float(price), book)
     return FixtureOdds(
         event_id=ev["id"],
         commence_time=datetime.fromisoformat(ev["commence_time"].replace("Z", "+00:00")),
@@ -81,6 +88,7 @@ def parse_event(ev: dict) -> FixtureOdds | None:
         source=src,
         n_books=len(h2h),
         raw_names=(ev["home_team"], ev["away_team"]),
+        best=best,
     )
 
 
